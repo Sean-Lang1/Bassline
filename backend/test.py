@@ -1,82 +1,31 @@
-import requests
-import json
+from etl import get_musicbrainz_relations, get_lastfm_similar, get_lastfm_artist_info, search_spotify_artist, is_valid_artist
 
-BASE = "https://musicbrainz.org/ws/2"
+artist_name = "Michael Jackson"
 
+print("=== MUSICBRAINZ RELATIONS ===")
+mb_relations = get_musicbrainz_relations(artist_name)
+for rel in mb_relations:
+    name = rel["name"]
+    if not is_valid_artist(name, artist_name):
+        print(f"[skip, invalid] {name} ({rel['rel_type']})")
+        continue
+    spotify = search_spotify_artist(name)
+    if not spotify:
+        print(f"[skip, no spotify match] {name} ({rel['rel_type']})")
+        continue
+    info = get_lastfm_artist_info(name)
+    print(f"{name} | {rel['rel_type']} | {info['listeners']} listeners")
 
-# 1. Get MBID from artist name
-def get_artist_mbid(name):
-    url = f"{BASE}/artist/"
-    params = {
-        "query": name,
-        "fmt": "json",
-        "limit": 1
-    }
-
-    r = requests.get(url, params=params)
-    data = r.json()
-
-    if "artists" not in data or len(data["artists"]) == 0:
-        raise Exception("No artist found")
-
-    artist = data["artists"][0]
-    return artist["id"], artist["name"]
-
-
-# 2. Fetch full relationships using MBID
-def get_artist_relations(mbid):
-    url = f"{BASE}/artist/{mbid}"
-    params = {
-        "inc": "artist-rels",
-        "fmt": "json"
-    }
-
-    r = requests.get(url, params=params)
-    return r.json()
-
-
-# 3. Debug function (THIS is what you wanted)
-def debug_artist_relations(expected_name, data):
-    print("\n🔍 EXPECTED ARTIST:", expected_name)
-    print("🔍 ACTUAL ARTIST:", data.get("name"))
-    print("🔍 MBID:", data.get("id"))
-    print("=" * 60)
-
-    # 🚨 sanity check (this catches your Bowie confusion instantly)
-    if expected_name.lower() not in data.get("name", "").lower():
-        print("🚨 WARNING: Artist mismatch detected!")
-        print("You probably queried the wrong MBID or reused old data.\n")
-
-    relations = data.get("relations", [])
-
-    if not relations:
-        print("❌ No relations found")
-        return
-
-    for i, rel in enumerate(relations):
-        target = rel.get("artist", {}).get("name", "UNKNOWN")
-        rel_type = rel.get("type")
-        direction = rel.get("direction")
-        joinphrase = rel.get("joinphrase")
-
-        print(f"\n[{i}] → {target}")
-        print("   type:", rel_type)
-        print("   direction:", direction)
-        print("   joinphrase:", joinphrase)
-
-        # flag missing joinphrases (your original issue)
-        if not joinphrase:
-            print("   ⚠️ missing joinphrase")
-
-
-# 4. FULL PIPELINE RUN
-def run_debug(name):
-    mbid, resolved_name = get_artist_mbid(name)
-
-    data = get_artist_relations(mbid)
-
-    debug_artist_relations(resolved_name, data)
-
-
-# RUN IT 👇
-run_debug("Michael Jackson")
+print("\n=== LASTFM SIMILAR ===")
+similar = get_lastfm_similar(artist_name)
+for rel in similar:
+    name = rel["name"]
+    if not is_valid_artist(name, artist_name):
+        print(f"[skip, invalid] {name}")
+        continue
+    spotify = search_spotify_artist(name)
+    if not spotify:
+        print(f"[skip, no spotify match] {name}")
+        continue
+    info = get_lastfm_artist_info(name)
+    print(f"{name} | similar | {info['listeners']} listeners")
