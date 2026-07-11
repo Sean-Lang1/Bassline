@@ -2,6 +2,7 @@ import time
 import config
 import requests
 from database import get_connection
+from pairs import DISCOVERED_PAIRS
 import json
 import os
 import sys
@@ -32,22 +33,13 @@ SPOTIFY_HEADERS = {
     "Authorization": f"Bearer {SPOTIFY_TOKEN}"
 }
 
-CACHE_DIR = "./api_cache"
+_memory_cache = {}
 
 def cache_read(cache_name):
-    path = f"{CACHE_DIR}/{cache_name}.json"
-    if os.path.exists(path):
-        try:
-            with open(path, "r") as f:
-                return json.load(f)
-        except:
-            return None
-    return None
+    return _memory_cache.get(cache_name)
 
 def cache_write(cache_name, data):
-    os.makedirs(CACHE_DIR, exist_ok=True)
-    with open(f"{CACHE_DIR}/{cache_name}.json", "w") as f:
-        json.dump(data, f)
+    _memory_cache[cache_name] = data
 
 
 # =====================
@@ -113,6 +105,16 @@ def is_valid_artist(name, source_artist):
         return False
 
     return True
+
+
+def extract_joint_artist(name, source_artist):
+    normalized = name.replace(" and ", " & ").replace(" And ", " & ")
+    if " & " not in normalized:
+        return None
+    for part in normalized.split(" & "):
+        if source_artist.lower() not in part.lower().strip():
+            return part.strip()
+    return None
 
 # =====================
 # LAST.FM
@@ -307,14 +309,15 @@ def search_spotify_artist(artist_name):
 # =====================
 # GEOCODING (for hometown)
 # =====================
-_last_geocode_call = 0
+_last_call_times = {}
 
-def _geocode_throttle():
-    global _last_geocode_call
-    elapsed = time.time() - _last_geocode_call
-    if elapsed < 1.0:
-        time.sleep(1.0 - elapsed)
-    _last_geocode_call = time.time()
+def throttle(seconds):
+    caller = sys._getframe(1).f_code.co_name
+    last_call = _last_call_times.get(caller, 0)
+    elapsed = time.time() - last_call
+    if elapsed < seconds:
+        time.sleep(seconds - elapsed)
+    _last_call_times[caller] = time.time()
 
 
 def geocode_hometown(hometown):
@@ -325,7 +328,7 @@ def geocode_hometown(hometown):
     if cached:
         return cached.get("lat"), cached.get("lon")
 
-    _geocode_throttle()
+    throttle(1)
 
     r = request_with_retry(
         requests.get,
@@ -358,47 +361,61 @@ def geocode_hometown(hometown):
     cache_write(f"geocode_{cache_key(hometown)}", {"lat": lat, "lon": lon})
     return lat, lon
 
-_last_musicbrainz_call = 0
 
-def _musicbrainz_throttle():
-    global _last_musicbrainz_call
-    elapsed = time.time() - _last_musicbrainz_call
-    if elapsed < 1.0:
-        time.sleep(1.0 - elapsed)
-    _last_musicbrainz_call = time.time()
+ALLOWED_REL_TYPES = ["sibling", "married", "member of band", "collaboration"]
 
+def get_musicbrainz_relations(artist_name):
+    throttle(1)
 
-def check_musicbrainz_collaboration(a1, a2):
-    _musicbrainz_throttle()
-
-    r = request_with_retry(
+    search = request_with_retry(
         requests.get,
-        "https://musicbrainz.org/ws/2/recording/",
-        params={
-            "query": f'artist:"{a1}"',
-            "fmt": "json",
-            "limit": 50
-        },
+        "https://musicbrainz.org/ws/2/artist/",
+        params={"query": artist_name, "fmt": "json", "limit": 1},
         headers={"User-Agent": "bassline-app/1.0"}
     )
 
-    if r is None:
-        print(f"[error] MusicBrainz collab check failed for {a1} / {a2}, skipping")
-        return False
+    if search is None:
+        return []
 
     try:
-        data = r.json()
+        artists = search.json().get("artists", [])
     except Exception as e:
-        print(f"[error] MusicBrainz returned bad JSON for {a1}: {e}")
-        return False
+        print(f"[error] MusicBrainz search returned bad JSON for {artist_name}: {e}")
+        return []
 
-    for rec in data.get("recordings", []):
-        for c in rec.get("artist-credit", []):
-            name = c.get("artist", {}).get("name", "")
-            if name.lower() == a2.lower():
-                return True
+    if not artists:
+        return []
 
-    return False
+    mbid = artists[0]["id"]
+
+    throttle(1)
+
+    rels = request_with_retry(
+        requests.get,
+        f"https://musicbrainz.org/ws/2/artist/{mbid}",
+        params={"inc": "artist-rels", "fmt": "json"},
+        headers={"User-Agent": "bassline-app/1.0"}
+    )
+
+    if rels is None:
+        return []
+
+    try:
+        data = rels.json()
+    except Exception as e:
+        print(f"[error] MusicBrainz relations returned bad JSON for {artist_name}: {e}")
+        return []
+
+    results = []
+    for rel in data.get("relations", []):
+        rel_type = rel.get("type")
+        if rel_type not in ALLOWED_REL_TYPES:
+            continue
+
+        target = rel.get("artist", {})
+        results.append({"name": target.get("name", ""), "rel_type": rel_type})
+
+    return results
 
 
 # =====================
@@ -412,96 +429,180 @@ def build_artist_relations(artist_name, limit_related=10):
 
     base = search_spotify_artist(artist_name)
     if not base:
-        return []
+        return None
 
     base_id = base["id"]
 
-    cur.execute("SELECT spotify_id FROM artists WHERE spotify_id = ?", (base_id,))
+    cur.execute("SELECT spotify_id FROM artists WHERE spotify_id = %s", (base_id,))
     if not cur.fetchone():
         import_artist(artist_name)
 
     similar = get_lastfm_similar(artist_name)
+    mb_relations = get_musicbrainz_relations(artist_name)
 
-    collab_bucket = []
+    rel_bucket = []
     similar_bucket = []
     seen = set()
 
-    for rel in similar:
+    for rel in mb_relations:
         name = rel["name"]
 
         if not is_valid_artist(name, artist_name):
             continue
-
         if name.lower() in seen:
             continue
         seen.add(name.lower())
 
         spotify = search_spotify_artist(name)
-        if not spotify:
-            continue
-
-        if spotify["id"] == base_id:
+        if not spotify or spotify["id"] == base_id:
             continue
 
         info = get_lastfm_artist_info(name)
-        listeners = info["listeners"]
 
-        is_collab = check_musicbrainz_collaboration(artist_name, name)
-
-        candidate = {
+        rel_bucket.append({
             "name": name,
             "spotify_id": spotify["id"],
-            "listeners": listeners,
+            "listeners": info["listeners"],
             "summary": info["summary"],
             "image": spotify.get("image"),
-            "collab": is_collab
-        }
+            "rel_type": rel["rel_type"]
+        })
 
-        if is_collab:
-            collab_bucket.append(candidate)
-        else:
-            similar_bucket.append(candidate)
+    discovered_bucket = []
 
-    collab_bucket.sort(key=lambda x: x["listeners"], reverse=True)
+    for mentor, discovered in DISCOVERED_PAIRS:
+        name = None
+        rel_type = None
+
+        if mentor.lower() == artist_name.lower():
+            name = discovered
+            rel_type = "discovered"
+        elif discovered.lower() == artist_name.lower():
+            name = mentor
+            rel_type = "discovered by"
+
+        if not name:
+            continue
+        if not is_valid_artist(name, artist_name):
+            continue
+        if name.lower() in seen:
+            continue
+        seen.add(name.lower())
+
+        spotify = search_spotify_artist(name)
+        if not spotify or spotify["id"] == base_id:
+            continue
+
+        info = get_lastfm_artist_info(name)
+
+        discovered_bucket.append({
+            "name": name,
+            "spotify_id": spotify["id"],
+            "listeners": info["listeners"],
+            "summary": info["summary"],
+            "image": spotify.get("image"),
+            "rel_type": rel_type
+        })
+
+    for rel in similar:
+        name = rel["name"]
+
+        joint = extract_joint_artist(name, artist_name)
+        if joint:
+            name = joint
+
+            if not is_valid_artist(name, artist_name):
+                continue
+            if name.lower() in seen:
+                continue
+            seen.add(name.lower())
+
+            spotify = search_spotify_artist(name)
+            if not spotify or spotify["id"] == base_id:
+                continue
+
+            info = get_lastfm_artist_info(name)
+
+            rel_bucket.append({
+                "name": name,
+                "spotify_id": spotify["id"],
+                "listeners": info["listeners"],
+                "summary": info["summary"],
+                "image": spotify.get("image"),
+                "rel_type": "collaboration"
+            })
+            continue
+
+        if not is_valid_artist(name, artist_name):
+            continue
+        if name.lower() in seen:
+            continue
+        seen.add(name.lower())
+
+        spotify = search_spotify_artist(name)
+        if not spotify or spotify["id"] == base_id:
+            continue
+
+        info = get_lastfm_artist_info(name)
+
+        similar_bucket.append({
+            "name": name,
+            "spotify_id": spotify["id"],
+            "listeners": info["listeners"],
+            "summary": info["summary"],
+            "image": spotify.get("image"),
+            "rel_type": "similar"
+        })
+
+    rel_bucket.sort(key=lambda x: x["listeners"], reverse=True)
     similar_bucket.sort(key=lambda x: x["listeners"], reverse=True)
+    discovered_bucket.sort(key=lambda x: x["listeners"], reverse=True)
 
-    final = []
-
-    for c in collab_bucket:
-        final.append(c)
+    final = rel_bucket[:3]
 
     i = 0
     while len(final) < limit_related and i < len(similar_bucket):
         final.append(similar_bucket[i])
         i += 1
 
+    final = final + discovered_bucket[:2]
+
     final.sort(key=lambda x: x["listeners"], reverse=True)
 
+    related = []
     links = []
 
     for c in final:
         import_artist(c["name"])
         print(c["name"], "[", c["listeners"], "]")
 
+        related.append(c)
+
         links.append({
             "source": base_id,
             "target": c["spotify_id"],
-            "rel_type": "collaboration" if c["collab"] else "similar",
+            "rel_type": c["rel_type"],
             "listeners": c["listeners"]
         })
 
     for e in links:
         cur.execute("""
-            INSERT OR IGNORE INTO artist_links
+            INSERT INTO artist_links
             (source_id, target_id, relationship)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (source_id, target_id, relationship) DO NOTHING
         """, (e["source"], e["target"], e["rel_type"]))
 
     conn.commit()
     conn.close()
 
     print(f"\nInserted {len(links)} links")
-    return links
+
+    return {
+        "artist": base,
+        "related": related,
+        "links": links
+    }
 
 # =====================
 # IMPORT ARTIST
@@ -520,9 +621,10 @@ def import_artist(artist_name):
     lat, lon = geocode_hometown(hometown)
 
     cur.execute("""
-        INSERT OR IGNORE INTO artists
+        INSERT INTO artists
         (spotify_id, name, hometown, listeners, summary, image_url, latitude, longitude)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (spotify_id) DO NOTHING
     """, (
         spotify["id"],
         spotify["name"],
@@ -540,9 +642,10 @@ def import_artist(artist_name):
             continue
 
         cur.execute("""
-            INSERT OR IGNORE INTO tracks
+            INSERT INTO tracks
             (spotify_id, name, artist_id, album_name, image_url, release_date)
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (spotify_id) DO NOTHING
         """, (
             t["spotify_id"],
             t["name"],

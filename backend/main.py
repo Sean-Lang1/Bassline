@@ -1,8 +1,18 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from database import get_connection
+from etl import build_artist_relations
+import os
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 favicon_path = "favicon.ico"
 
@@ -14,25 +24,36 @@ def root():
 
 @app.get("/artists/{name}")
 def get_artist(name: str):
-
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute(
-        "SELECT * FROM artists WHERE name = ?",
-        (name,)
-    )
-
-    artist = cur.fetchone()
-
-    conn.close()
+    try:
+        cur.execute(
+            "SELECT * FROM artists WHERE name ILIKE %s",
+            (name,)
+        )
+        artist = cur.fetchone()
+    finally:
+        conn.close()
 
     if not artist:
-        return {"error": "Artist not found"}
+        raise HTTPException(status_code=404, detail="Artist not found")
 
     return dict(artist)
 
 
+@app.get("/relations/{name}")
+def get_relations(name: str):
+    data = build_artist_relations(name)
+
+    if not data:
+        raise HTTPException(status_code=404, detail="Artist not found")
+
+    return data
+
+
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
+    if not os.path.exists(favicon_path):
+        raise HTTPException(status_code=404)
     return FileResponse(favicon_path, media_type="image/x-icon")
