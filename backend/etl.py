@@ -12,25 +12,14 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 warnings.filterwarnings('ignore')
 
-
 # =====================
 # SPOTIFY AUTH
 # =====================
-def get_spotify_token():
-    response = requests.post(
-        "https://accounts.spotify.com/api/token",
-        data={
-            "grant_type": "client_credentials",
-            "client_id": config.SPOTIFY_CLIENT_ID,
-            "client_secret": config.SPOTIFY_CLIENT_SECRET
-        }
-    )
-    return response.json()["access_token"]
+SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 
-
-SPOTIFY_TOKEN = get_spotify_token()
 SPOTIFY_HEADERS = {
-    "Authorization": f"Bearer {SPOTIFY_TOKEN}"
+    "Authorization": f"Basic {SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}"
 }
 
 _memory_cache = {}
