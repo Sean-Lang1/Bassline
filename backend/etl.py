@@ -17,22 +17,15 @@ warnings.filterwarnings('ignore')
 # SPOTIFY AUTH
 # =====================
 def get_spotify_token():
-    auth_url = "https://accounts.spotify.com/api/token"
-
     response = requests.post(
-        auth_url,
+        "https://accounts.spotify.com/api/token",
         data={
             "grant_type": "client_credentials",
-            "client_id": SPOTIFY_CLIENT_ID,
-            "client_secret": SPOTIFY_CLIENT_SECRET,
-        },
+            "client_id": config.SPOTIFY_CLIENT_ID,
+            "client_secret": config.SPOTIFY_CLIENT_SECRET
+        }
     )
-
-    print("STATUS:", response.status_code)
-    print("BODY:", response.text)
-
-    data = response.json()
-    return data["access_token"]
+    return response.json()["access_token"]
 
 
 SPOTIFY_TOKEN = get_spotify_token()
