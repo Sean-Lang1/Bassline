@@ -15,12 +15,22 @@ warnings.filterwarnings('ignore')
 # =====================
 # SPOTIFY AUTH
 # =====================
-SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
-SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
+def get_spotify_token():
+    response = requests.post(
+        "https://accounts.spotify.com/api/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": os.getenv("SPOTIFY_CLIENT_ID"),
+            "client_secret": os.getenv("SPOTIFY_CLIENT_SECRET")
+        }
+    )
+    data = response.json()
+    return data.get("access_token")
 
-SPOTIFY_HEADERS = {
-    "Authorization": f"Basic {SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}"
-}
+def get_spotify_headers():
+    token = get_spotify_token()
+    return {"Authorization": f"Bearer {token}"}
+
 
 _memory_cache = {}
 
@@ -218,7 +228,7 @@ def get_lastfm_top_tracks(artist_name):
         sp_r = request_with_retry(
             requests.get,
             "https://api.spotify.com/v1/search",
-            headers=SPOTIFY_HEADERS,
+            headers=get_spotify_headers(),
             params={
                 "q": f"track:{track_name} artist:{artist_name}",
                 "type": "track",
@@ -264,7 +274,7 @@ def search_spotify_artist(artist_name):
     r = request_with_retry(
         requests.get,
         "https://api.spotify.com/v1/search",
-        headers=SPOTIFY_HEADERS,
+        headers=get_spotify_headers(),
         params={
             "q": f"artist:{artist_name}",
             "type": "artist",
