@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Bungee&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0a0704;
+  --bg:#040302; /* ADJUST: darker base */
   --avocado:#7a8b3a;
   --gold:#c08b2e;
   --orange:#d9642a;
@@ -32,10 +32,10 @@ body{
 }
 .blob{
   position:absolute;
-  width:55vw; height:55vw; /* ADJUST: blob size */
+  width:45vw; height:45vw; /* ADJUST: blob size (smaller than before) */
   border-radius:50%;
-  filter:blur(60px); /* ADJUST: blob softness */
-  opacity:0.45; /* ADJUST: blob strength */
+  filter:blur(90px); /* ADJUST: blob softness (softer than before) */
+  opacity:0.18; /* ADJUST: blob strength (much more subtle) */
 }
 .blob1{ background:var(--avocado); top:-10%; left:-10%; animation: blobMove1 26s ease-in-out infinite; } /* ADJUST: speed */
 .blob2{ background:var(--gold); top:20%; right:-15%; animation: blobMove2 32s ease-in-out infinite; }
@@ -58,7 +58,7 @@ body{
 #bgLayer::after{
   content:"";
   position:absolute; inset:0;
-  background-image: radial-gradient(rgba(255,246,232,0.12) 1.5px, transparent 1.5px); /* ADJUST: dot visibility */
+  background-image: radial-gradient(rgba(255,246,232,0.16) 1.5px, transparent 1.5px); /* ADJUST: dot visibility (bumped up for artsy texture) */
   background-size: 14px 14px; /* ADJUST: dot spacing */
   mix-blend-mode:overlay;
 }
