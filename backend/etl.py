@@ -74,7 +74,17 @@ def request_with_retry(method, url, max_attempts=3, backoff_seconds=2, **kwargs)
         try:
             response = method(url, timeout=10, **kwargs)
 
-            if response.status_code == 429 or response.status_code >= 500:
+            if response.status_code == 429:
+                wait = int(response.headers.get("Retry-After", backoff_seconds))
+                wait = min(wait, 20)
+                print(f"[retry] {url} rate limited, waiting {wait}s "
+                      f"(attempt {attempt}/{max_attempts})")
+                last_error = "HTTP 429"
+                if attempt < max_attempts:
+                    time.sleep(wait)
+                continue
+
+            if response.status_code >= 500:
                 print(f"[retry] {url} returned {response.status_code} "
                       f"(attempt {attempt}/{max_attempts})")
                 last_error = f"HTTP {response.status_code}"
@@ -221,6 +231,10 @@ def get_lastfm_artist_info(artist_name):
 # TOP TRACKS
 # =====================
 def get_lastfm_top_tracks(artist_name):
+    cached = cache_read(f"top_tracks_{cache_key(artist_name)}")
+    if cached:
+        return cached
+
     ensure_spotify_token()
 
     r = request_with_retry(
@@ -281,6 +295,7 @@ def get_lastfm_top_tracks(artist_name):
                 "artists": []
             })
 
+    cache_write(f"top_tracks_{cache_key(artist_name)}", results)
     return results
 
 # =====================
