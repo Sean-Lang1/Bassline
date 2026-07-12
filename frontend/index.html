@@ -200,9 +200,9 @@ scene.add(dirLight);
 const starsGeometry = new THREE.BufferGeometry();
 const starPositions = [];
 while (starPositions.length < 900 * 3) {
-  const x = (Math.random() - 0.5) * 24;
-  const y = (Math.random() - 0.5) * 24;
-  const z = (Math.random() - 0.5) * 24;
+  const x = (Math.random() - 0.5) * 31;
+  const y = (Math.random() - 0.5) * 31;
+  const z = (Math.random() - 0.5) * 31;
   if (Math.sqrt(x * x + y * y + z * z) > 3) {
     starPositions.push(x, y, z);
   }
@@ -210,11 +210,11 @@ while (starPositions.length < 900 * 3) {
 starsGeometry.setAttribute("position", new THREE.Float32BufferAttribute(starPositions, 3));
 scene.add(new THREE.Points(
   starsGeometry,
-  new THREE.PointsMaterial({ color: 0xfff6e8, size: 0.03, transparent: true, opacity: 0.65 })
+  new THREE.PointsMaterial({ color: 0xfff6e8, size: 0.05, transparent: true, opacity: 0.65 })
 ));
 
 // =====================
-// EARTH (50% black core + orange wireframe on top)
+// 3D EARTH
 // =====================
 const earthCore = new THREE.Mesh(
   new THREE.SphereGeometry(0.995, 48, 48),
@@ -240,7 +240,7 @@ function latLonToVector3(lat, lon, radius = 1) {
 }
 
 // =====================
-// COUNTRY BORDERS (from your countries.json)
+// COUNTRIES WIREFRAME
 // =====================
 const countryGroup = new THREE.Group();
 scene.add(countryGroup);
@@ -274,7 +274,7 @@ fetch("./geojson/countries.json")
   .catch((err) => console.error("Could not load countries.json", err));
 
 // =====================
-// NODES + LINES (single system — one mesh per artist, no duplicate markers)
+// NODES + LINES
 // =====================
 const nodesGroup = new THREE.Group();
 scene.add(nodesGroup);
@@ -306,8 +306,6 @@ function addNode(artist, isBase) {
   return pos;
 }
 
-// arcs along the outside of the sphere using spherical interpolation,
-// so it can't dip through the earth no matter where the two points are
 function addLine(posA, posB) {
   if (!posA || !posB) return;
 
@@ -384,7 +382,7 @@ function showMiniPanelAt(screenX, screenY, artist) {
 }
 
 // =====================
-// CAMERA FOCUS (fly to a lat/lon)
+// CAMERA FOCUS 
 // =====================
 function focusOnLatLon(lat, lon) {
   if (lat == null || lon == null) return Promise.resolve();
@@ -446,7 +444,6 @@ async function loadArtist(name) {
 
     const data = await res.json();
 
-    // only pause rotation once we actually have an artist to show
     globeRotating = false;
     clearGraph();
 
@@ -490,7 +487,7 @@ recenterBtn.addEventListener("click", () => {
 });
 
 // =====================
-// CLICK HANDLING (raycast onto nodes only)
+// CLICK HANDLING 
 // =====================
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
