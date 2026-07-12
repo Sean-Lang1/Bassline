@@ -27,17 +27,33 @@ body{
 /* ===== PSYCHEDELIC BACKGROUND (behind the canvas) ===== */
 #bgLayer{
   position:fixed; inset:0; z-index:0; pointer-events:none;
-  background:
-    radial-gradient(circle at 15% 20%, rgba(122,139,58,0.35), transparent 40%), /* ADJUST: avocado blob */
-    radial-gradient(circle at 85% 15%, rgba(192,139,46,0.3), transparent 45%),  /* ADJUST: gold blob */
-    radial-gradient(circle at 50% 90%, rgba(217,100,42,0.3), transparent 50%), /* ADJUST: orange blob */
-    var(--bg);
-  animation: drift 24s ease-in-out infinite alternate; /* ADJUST: drift speed */
+  background:var(--bg);
+  overflow:hidden;
 }
-@keyframes drift{
-  from{ filter:hue-rotate(0deg); }
-  to{ filter:hue-rotate(20deg); }
+.blob{
+  position:absolute;
+  width:55vw; height:55vw; /* ADJUST: blob size */
+  border-radius:50%;
+  filter:blur(60px); /* ADJUST: blob softness */
+  opacity:0.45; /* ADJUST: blob strength */
 }
+.blob1{ background:var(--avocado); top:-10%; left:-10%; animation: blobMove1 26s ease-in-out infinite; } /* ADJUST: speed */
+.blob2{ background:var(--gold); top:20%; right:-15%; animation: blobMove2 32s ease-in-out infinite; }
+.blob3{ background:var(--orange); bottom:-20%; left:20%; animation: blobMove3 20s ease-in-out infinite; }
+
+@keyframes blobMove1{
+  0%,100%{ transform:translate(0,0) scale(1); }
+  50%{ transform:translate(15vw,10vh) scale(1.2); }
+}
+@keyframes blobMove2{
+  0%,100%{ transform:translate(0,0) scale(1); }
+  50%{ transform:translate(-12vw,15vh) scale(0.9); }
+}
+@keyframes blobMove3{
+  0%,100%{ transform:translate(0,0) scale(1); }
+  50%{ transform:translate(10vw,-12vh) scale(1.15); }
+}
+
 /* halftone dots on top of the blobs */
 #bgLayer::after{
   content:"";
@@ -52,17 +68,17 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 /* ===== SEARCH BAR (center bottom, floating pill) ===== */
 #search{
   position:absolute; left:50%; transform:translateX(-50%);
-  bottom:36px; z-index:40;
-  display:flex; align-items:center; gap:12px;
-  padding:14px 28px; border-radius:999px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.25));
-  border:2px solid var(--gold); /* ADJUST: border thickness/color */
-  box-shadow: 0 10px 40px var(--shadow), 0 0 30px rgba(192,139,46,0.25);
-  min-width:420px; max-width:86%;
+  bottom:70px; z-index:40; /* ADJUST: moved up from 36px */
+  display:flex; align-items:center; gap:14px;
+  padding:20px 36px; border-radius:999px; /* ADJUST: bigger padding */
+  background: linear-gradient(135deg, rgba(255,255,255,0.14), rgba(0,0,0,0.35)); /* ADJUST: glassier gradient */
+  border:3px solid var(--gold); /* ADJUST: thicker border */
+  box-shadow: 0 10px 40px var(--shadow), 0 0 40px rgba(192,139,46,0.35);
+  min-width:520px; max-width:86%; /* ADJUST: bigger overall bar */
 }
 #searchBox{
   background:transparent; border:none; outline:none;
-  color:var(--cream); font-size:17px; font-weight:600; width:340px;
+  color:var(--cream); font-size:22px; font-weight:700; width:420px; /* ADJUST: bigger text */
   font-family:"Baloo 2", sans-serif;
 }
 #searchBox::placeholder{ color:rgba(255,246,232,0.55); }
@@ -115,7 +131,11 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 </head>
 <body>
 
-<div id="bgLayer"></div>
+<div id="bgLayer">
+  <div class="blob blob1"></div>
+  <div class="blob blob2"></div>
+  <div class="blob blob3"></div>
+</div>
 
 <div id="miniPanel" aria-hidden="true"></div>
 
@@ -169,11 +189,12 @@ dirLight.position.set(5, 3, 5);
 scene.add(dirLight);
 
 // =====================
-// EARTH (solid sphere, warm tone, opaque so nodes occlude correctly)
+// EARTH (wireframe, orange lines)
 // =====================
-const earthMesh = new THREE.Mesh(
-  new THREE.SphereGeometry(1, 64, 64),
-  new THREE.MeshPhongMaterial({ color: 0x2b2010, shininess: 4 }) // ADJUST: earth base color
+const earthEdges = new THREE.EdgesGeometry(new THREE.SphereGeometry(1, 32, 32));
+const earthMesh = new THREE.LineSegments(
+  earthEdges,
+  new THREE.LineBasicMaterial({ color: 0xff7a2e, transparent: true, opacity: 0.5 }) // ADJUST: wireframe color/opacity
 );
 scene.add(earthMesh);
 
