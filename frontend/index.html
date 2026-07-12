@@ -4,18 +4,15 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Bassline Globe</title>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#1b1208;
+  --bg:#000; /* black space base */
   --paper:#fff6e8;
   --avocado:#7a8b3a;
   --gold:#c08b2e;
   --orange:#d9642a;
   --muted:#d9c9b0;
-  --panel:rgba(20,12,8,0.55);
-  --glass:rgba(255,250,240,0.06);
   --dim:rgba(255,246,232,0.7);
   --shadow:rgba(0,0,0,0.6);
 }
@@ -23,22 +20,18 @@
 html,body{height:100%;margin:0}
 body{
   font-family:"Rubik",system-ui,-apple-system,Segoe UI,Roboto,Arial;
-  background:
-    radial-gradient(1200px 600px at 10% 10%, rgba(217,201,176,0.06), transparent 10%),
-    linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.08)),
-    var(--bg);
+  background:var(--bg);
   color:var(--paper);
   overflow:hidden;
 }
 
-/* subtle wavy + halftone */
-body::before{
+/* halftone overlay on black */
+body::after{
   content:"";
   position:fixed; inset:0; pointer-events:none;
   background:
-    radial-gradient(circle at 20% 10%, rgba(255,255,255,0.02), transparent 8%),
-    linear-gradient(120deg, rgba(217,201,176,0.02), transparent 30%),
-    repeating-radial-gradient(circle at 80% 20%, rgba(0,0,0,0.02) 0 2px, transparent 2px 6px);
+    radial-gradient(circle at 10% 10%, rgba(255,255,255,0.02), transparent 6%),
+    repeating-radial-gradient(circle at 80% 20%, rgba(255,255,255,0.02) 0 2px, transparent 2px 6px);
   mix-blend-mode:overlay;
   opacity:0.9;
 }
@@ -50,7 +43,7 @@ body::before{
   display:flex; align-items:center; gap:12px;
   padding:14px 28px; border-radius:999px;
   background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12));
-  border:1px solid rgba(255,245,230,0.12);
+  border:1px solid rgba(255,245,230,0.08);
   box-shadow: 0 10px 40px var(--shadow), 0 0 30px rgba(192,139,46,0.12);
   min-width:480px; max-width:86%;
 }
@@ -60,7 +53,7 @@ body::before{
 }
 #searchBox::placeholder{ color:rgba(255,246,232,0.6); font-style:italic; }
 
-/* left artist card (album sleeve) */
+/* left artist card */
 #artistCard{
   position:absolute; left:28px; top:50%; transform:translateY(-50%);
   width:260px; padding:14px; border-radius:12px;
@@ -137,6 +130,9 @@ canvas{ display:block; width:100vw; height:100vh }
 import * as THREE from "three";
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 
+/* =====================
+   SETUP
+   ===================== */
 const API_BASE_URL = "https://backend-ivory-gamma-74.vercel.app";
 const canvas = document.getElementById("globe");
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
@@ -144,7 +140,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b0806);
+scene.background = new THREE.Color(0x000000);
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
 camera.position.set(0,0,3);
@@ -155,9 +151,8 @@ controls.dampingFactor = 0.06;
 controls.minDistance = 1.3;
 controls.maxDistance = 8;
 controls.rotateSpeed = 0.6;
-controls.screenSpacePanning = false;
+controls.screenSpacePanning = true; // pan in screen space
 
-// mouse mapping: left = pan, right = rotate, middle = dolly
 controls.mouseButtons = {
   LEFT: THREE.MOUSE.PAN,
   MIDDLE: THREE.MOUSE.DOLLY,
@@ -181,24 +176,8 @@ for(let i=0;i<800;i++){
 starsGeometry.setAttribute("position", new THREE.Float32BufferAttribute(starPositions,3));
 scene.add(new THREE.Points(starsGeometry, new THREE.PointsMaterial({ color:0xffffff, size:0.03 })));
 
-let earthMesh;
-const loader = new THREE.TextureLoader();
-loader.load('./textures/earth_land.jpg',
-  tex => {
-    const mat = new THREE.MeshPhongMaterial({
-      map: tex,
-      shininess: 2,
-      specular: 0x111111
-    });
-    earthMesh = new THREE.Mesh(new THREE.SphereGeometry(1,64,64), mat);
-    scene.add(earthMesh);
-  },
-  undefined,
-  ()=> {
-    earthMesh = new THREE.Mesh(new THREE.SphereGeometry(1,64,64), new THREE.MeshBasicMaterial({ color:0x0b0a08 }));
-    scene.add(earthMesh);
-  }
-);
+const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(1,64,64), new THREE.MeshPhongMaterial({ color:0x0b0a08, shininess:2 }));
+scene.add(earthMesh);
 
 function latLonToVector3(lat, lon, radius=1.01){
   const phi = (90 - lat) * Math.PI/180;
@@ -298,7 +277,7 @@ const miniPanel = document.getElementById("miniPanel");
 const recenterBtn = document.getElementById("recenterBtn");
 
 let globeRotating = true;
-let activeController = null;
+let resumeTimeout = null;
 
 function showSpinner(show){ spinner.style.display = show ? "block" : "none"; }
 
@@ -315,25 +294,10 @@ function renderArtistCard(artist){
 }
 
 /* =====================
-   RENDER RELATED PANEL (sorted)
+   SORT + RENDER RELATED
    ===================== */
-const REL_PRIORITY = {
-  "member": 1,
-  "member_of_band": 1,
-  "discovered": 2,
-  "discovered_by": 2,
-  "sibling": 3,
-  "family": 3,
-  "similar": 4,
-  "collaboration": 5,
-  "collab": 5
-};
-
-function relPriority(relType){
-  if(!relType) return 99;
-  const k = relType.toLowerCase().replace(/\s+/g,'_');
-  return REL_PRIORITY[k] || 50;
-}
+const REL_PRIORITY = { member:1, member_of_band:1, discovered:2, discovered_by:2, sibling:3, family:3, similar:4, collaboration:5, collab:5 };
+function relPriority(relType){ if(!relType) return 99; const k = relType.toLowerCase().replace(/\s+/g,'_'); return REL_PRIORITY[k] || 50; }
 
 function renderSidePanel(data){
   relatedList.innerHTML = "";
@@ -356,17 +320,18 @@ function renderSidePanel(data){
 }
 
 /* =====================
-   MINI PANEL near node
+   MINI PANEL
    ===================== */
 function showMiniPanelAt(screenX, screenY, artist){
   miniPanel.innerHTML = `
     <div style="font-weight:700;color:var(--muted)">${artist.name}</div>
     <div style="font-size:13px;color:var(--dim)">${artist.hometown||''}</div>
-    <div style="margin-top:8px"><button style="padding:8px;border-radius:8px;border:none;background:linear-gradient(180deg,var(--gold),var(--orange));color:#1b1208;cursor:pointer">Open</button></div>
+    <div style="margin-top:8px"><button id="miniOpen" style="padding:8px;border-radius:8px;border:none;background:linear-gradient(180deg,var(--gold),var(--orange));color:#1b1208;cursor:pointer">Open</button></div>
   `;
   miniPanel.style.left = `${screenX}px`;
   miniPanel.style.top = `${screenY}px`;
   miniPanel.style.display = "block";
+  document.getElementById("miniOpen").onclick = ()=> loadArtist(artist.name);
 }
 
 /* =====================
@@ -380,25 +345,28 @@ function clearGraph(){
 }
 
 /* =====================
-   FOCUS CAMERA
+   CAMERA FOCUS + ROTATION CONTROL
    ===================== */
 function focusOnLatLon(lat, lon){
-  if(lat==null || lon==null) return;
+  if(lat==null || lon==null) return new Promise(res=>res());
   const target = latLonToVector3(Number(lat), Number(lon), 1.02);
   const camTarget = target.clone().multiplyScalar(2.2);
   const startPos = camera.position.clone();
   const startTarget = controls.target.clone();
   const frames = 36;
   let i = 0;
-  function step(){
-    i++;
-    const t = i/frames;
-    camera.position.lerpVectors(startPos, camTarget, t);
-    controls.target.lerpVectors(startTarget, target, t);
-    controls.update();
-    if(i<frames) requestAnimationFrame(step);
-  }
-  step();
+  return new Promise(resolve=>{
+    function step(){
+      i++;
+      const t = i/frames;
+      camera.position.lerpVectors(startPos, camTarget, t);
+      controls.target.lerpVectors(startTarget, target, t);
+      controls.update();
+      if(i<frames) requestAnimationFrame(step);
+      else resolve();
+    }
+    step();
+  });
 }
 
 /* =====================
@@ -425,6 +393,7 @@ async function loadArtist(name){
   showSpinner(true);
   globeRotating = false;
   miniPanel.style.display = "none";
+  if(resumeTimeout){ clearTimeout(resumeTimeout); resumeTimeout = null; }
   try{
     const res = await fetchWithTimeout(`${API_BASE_URL}/relations/${encodeURIComponent(name)}`, 9000);
     if(!res.ok){ alert("Artist not found"); return; }
@@ -445,7 +414,9 @@ async function loadArtist(name){
     });
     renderArtistCard(data.artist);
     renderSidePanel(data);
-    focusOnLatLon(data.artist.latitude, data.artist.longitude);
+    await focusOnLatLon(data.artist.latitude, data.artist.longitude);
+    // resume rotation after short pause
+    resumeTimeout = setTimeout(()=> { globeRotating = true; resumeTimeout = null; }, 3000);
   }catch(err){
     if(err.name === "AbortError") alert("Request timed out");
     else alert("Something went wrong");
@@ -469,14 +440,11 @@ window.addEventListener("click", e=>{
   if(hits.length){
     const artist = hits[0].object.userData;
     if(artist && artist.name){
-      // show mini panel anchored to node screen pos
       const pos = hits[0].point.clone();
       const screen = pos.project(camera);
       const sx = (screen.x * 0.5 + 0.5) * window.innerWidth;
       const sy = ( -screen.y * 0.5 + 0.5) * window.innerHeight;
       showMiniPanelAt(sx + 12, sy - 12, artist);
-      // clicking mini panel open full
-      miniPanel.querySelector('button').onclick = ()=> loadArtist(artist.name);
     }
   }
 });
@@ -488,14 +456,14 @@ document.getElementById("viewRelatedBtn").onclick = ()=> {
   relatedBubble.style.display = relatedBubble.style.display === "block" ? "none" : "block";
 };
 searchBox.addEventListener("keydown", e=>{ if(e.key === "Enter") loadArtist(e.target.value.trim()); });
-recenterBtn.onclick = ()=> { camera.position.set(0,0,3); controls.target.set(0,0,0); controls.update(); };
+recenterBtn.onclick = ()=> { camera.position.set(0,0,3); controls.target.set(0,0,0); controls.update(); globeRotating = true; };
 
 /* =====================
    ANIMATE
    ===================== */
 function animate(){
   requestAnimationFrame(animate);
-  if(globeRotating && earthMesh){
+  if(globeRotating){
     earthMesh.rotation.y += 0.0008;
     countryGroup.rotation.y += 0.0008;
     nodesGroup.rotation.y += 0.0008;
