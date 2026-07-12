@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Bassline Globe</title>
-<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Bungee&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Bungee&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#040302; /* ADJUST: darker base */
@@ -18,7 +18,7 @@
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{
-  font-family:"Baloo 2",system-ui,sans-serif;
+  font-family:"Outfit",system-ui,sans-serif;
   background:var(--bg);
   color:var(--cream);
   overflow:hidden;
@@ -54,12 +54,16 @@ body{
   50%{ transform:translate(10vw,-12vh) scale(1.15); }
 }
 
-/* halftone dots on top of the blobs */
+/* comic-style halftone: two dot layers at different scales, rotated like print misalignment */
 #bgLayer::after{
   content:"";
-  position:absolute; inset:0;
-  background-image: radial-gradient(rgba(255,246,232,0.16) 1.5px, transparent 1.5px); /* ADJUST: dot visibility (bumped up for artsy texture) */
-  background-size: 14px 14px; /* ADJUST: dot spacing */
+  position:absolute; inset:-50%; /* oversized so the rotation doesn't leave gaps */
+  background-image:
+    radial-gradient(rgba(255,246,232,0.18) 1.5px, transparent 1.5px),  /* ADJUST: fine dots */
+    radial-gradient(rgba(217,100,42,0.10) 3px, transparent 3px);       /* ADJUST: big orange dots */
+  background-size: 12px 12px, 34px 34px; /* ADJUST: dot spacing per layer */
+  background-position: 0 0, 8px 12px;
+  transform: rotate(-12deg); /* ADJUST: print-misalignment angle */
   mix-blend-mode:overlay;
 }
 
@@ -72,14 +76,14 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   display:flex; align-items:center; gap:14px;
   padding:20px 36px; border-radius:999px; /* ADJUST: bigger padding */
   background: linear-gradient(135deg, rgba(255,255,255,0.14), rgba(0,0,0,0.35)); /* ADJUST: glassier gradient */
-  border:3px solid var(--gold); /* ADJUST: thicker border */
+  border:5px solid var(--gold); /* ADJUST: thicker border */
   box-shadow: 0 10px 40px var(--shadow), 0 0 40px rgba(192,139,46,0.35);
   min-width:520px; max-width:86%; /* ADJUST: bigger overall bar */
 }
 #searchBox{
   background:transparent; border:none; outline:none;
   color:var(--cream); font-size:22px; font-weight:700; width:420px; /* ADJUST: bigger text */
-  font-family:"Baloo 2", sans-serif;
+  font-family:"Outfit", sans-serif;
 }
 #searchBox::placeholder{ color:rgba(255,246,232,0.55); }
 
@@ -106,7 +110,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 #miniOpen{
   width:100%; padding:9px; border-radius:10px; border:none;
   background:linear-gradient(180deg,var(--gold),var(--orange));
-  color:#1b1208; font-weight:800; font-family:"Baloo 2",sans-serif; cursor:pointer;
+  color:#1b1208; font-weight:800; font-family:"Outfit",sans-serif; cursor:pointer;
 }
 #miniOpen:hover{ filter:brightness(1.1); }
 
@@ -189,12 +193,18 @@ dirLight.position.set(5, 3, 5);
 scene.add(dirLight);
 
 // =====================
-// EARTH (wireframe, orange lines)
+// EARTH (50% black core + orange wireframe on top)
 // =====================
+const earthCore = new THREE.Mesh(
+  new THREE.SphereGeometry(0.995, 48, 48),
+  new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5 }) // ADJUST: core darkness
+);
+scene.add(earthCore);
+
 const earthEdges = new THREE.EdgesGeometry(new THREE.SphereGeometry(1, 32, 32));
 const earthMesh = new THREE.LineSegments(
   earthEdges,
-  new THREE.LineBasicMaterial({ color: 0xff7a2e, transparent: true, opacity: 0.5 }) // ADJUST: wireframe color/opacity
+  new THREE.LineBasicMaterial({ color: 0xff7a2e, transparent: true, opacity: 0.35 }) // ADJUST: wireframe color/opacity
 );
 scene.add(earthMesh);
 
@@ -400,7 +410,6 @@ async function loadArtist(name) {
   if (!name) return;
 
   showSpinner(true);
-  globeRotating = false;
   miniPanel.style.display = "none";
   if (resumeTimeout) { clearTimeout(resumeTimeout); resumeTimeout = null; }
 
@@ -413,6 +422,9 @@ async function loadArtist(name) {
     }
 
     const data = await res.json();
+
+    // only pause rotation once we actually have an artist to show
+    globeRotating = false;
     clearGraph();
 
     const basePos = addNode(data.artist, true);
@@ -489,6 +501,7 @@ function animate() {
   requestAnimationFrame(animate);
 
   if (globeRotating) {
+    earthCore.rotation.y += 0.0008;
     earthMesh.rotation.y += 0.0008; // ADJUST: auto-rotation speed
     countryGroup.rotation.y += 0.0008;
     nodesGroup.rotation.y += 0.0008;

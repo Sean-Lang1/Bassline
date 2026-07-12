@@ -41,8 +41,13 @@ def ensure_spotify_token():
 
     # refresh a bit early (60s buffer) rather than waiting for it to fully expire
     if time.time() >= SPOTIFY_TOKEN_EXPIRY - 60:
-        SPOTIFY_TOKEN, SPOTIFY_TOKEN_EXPIRY = get_spotify_token()
-        SPOTIFY_HEADERS = {"Authorization": f"Bearer {SPOTIFY_TOKEN}"}
+        refresh_spotify_token()
+
+
+def refresh_spotify_token():
+    global SPOTIFY_TOKEN, SPOTIFY_TOKEN_EXPIRY, SPOTIFY_HEADERS
+    SPOTIFY_TOKEN, SPOTIFY_TOKEN_EXPIRY = get_spotify_token()
+    SPOTIFY_HEADERS = {"Authorization": f"Bearer {SPOTIFY_TOKEN}"}
 
 _memory_cache = {}
 
@@ -299,6 +304,20 @@ def search_spotify_artist(artist_name):
             "limit": 1
         }
     )
+
+    # if spotify rejected the token outright, force a refresh and retry once
+    if r is not None and r.status_code == 401:
+        refresh_spotify_token()
+        r = request_with_retry(
+            requests.get,
+            "https://api.spotify.com/v1/search",
+            headers=SPOTIFY_HEADERS,
+            params={
+                "q": f"artist:{artist_name}",
+                "type": "artist",
+                "limit": 1
+            }
+        )
 
     if r is None:
         return None
