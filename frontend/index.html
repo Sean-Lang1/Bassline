@@ -4,113 +4,118 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Bassline Globe</title>
-<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Bungee&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#000; /* black space base */
-  --paper:#fff6e8;
+  --bg:#0a0704;
   --avocado:#7a8b3a;
   --gold:#c08b2e;
   --orange:#d9642a;
-  --muted:#d9c9b0;
+  --cream:#fff6e8;
   --dim:rgba(255,246,232,0.7);
   --shadow:rgba(0,0,0,0.6);
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{
-  font-family:"Rubik",system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  font-family:"Baloo 2",system-ui,sans-serif;
   background:var(--bg);
-  color:var(--paper);
+  color:var(--cream);
   overflow:hidden;
 }
 
-/* halftone overlay on black */
-body::after{
-  content:"";
-  position:fixed; inset:0; pointer-events:none;
+/* ===== PSYCHEDELIC BACKGROUND (behind the canvas) ===== */
+#bgLayer{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
   background:
-    radial-gradient(circle at 10% 10%, rgba(255,255,255,0.02), transparent 6%),
-    repeating-radial-gradient(circle at 80% 20%, rgba(255,255,255,0.02) 0 2px, transparent 2px 6px);
+    radial-gradient(circle at 15% 20%, rgba(122,139,58,0.35), transparent 40%), /* ADJUST: avocado blob */
+    radial-gradient(circle at 85% 15%, rgba(192,139,46,0.3), transparent 45%),  /* ADJUST: gold blob */
+    radial-gradient(circle at 50% 90%, rgba(217,100,42,0.3), transparent 50%), /* ADJUST: orange blob */
+    var(--bg);
+  animation: drift 24s ease-in-out infinite alternate; /* ADJUST: drift speed */
+}
+@keyframes drift{
+  from{ filter:hue-rotate(0deg); }
+  to{ filter:hue-rotate(20deg); }
+}
+/* halftone dots on top of the blobs */
+#bgLayer::after{
+  content:"";
+  position:absolute; inset:0;
+  background-image: radial-gradient(rgba(255,246,232,0.12) 1.5px, transparent 1.5px); /* ADJUST: dot visibility */
+  background-size: 14px 14px; /* ADJUST: dot spacing */
   mix-blend-mode:overlay;
-  opacity:0.9;
 }
 
-/* search pill */
+canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
+
+/* ===== SEARCH BAR (center bottom, floating pill) ===== */
 #search{
   position:absolute; left:50%; transform:translateX(-50%);
-  bottom:86px; z-index:40;
+  bottom:36px; z-index:40;
   display:flex; align-items:center; gap:12px;
   padding:14px 28px; border-radius:999px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12));
-  border:1px solid rgba(255,245,230,0.08);
-  box-shadow: 0 10px 40px var(--shadow), 0 0 30px rgba(192,139,46,0.12);
-  min-width:480px; max-width:86%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.25));
+  border:2px solid var(--gold); /* ADJUST: border thickness/color */
+  box-shadow: 0 10px 40px var(--shadow), 0 0 30px rgba(192,139,46,0.25);
+  min-width:420px; max-width:86%;
 }
 #searchBox{
   background:transparent; border:none; outline:none;
-  color:var(--paper); font-size:18px; width:420px;
+  color:var(--cream); font-size:17px; font-weight:600; width:340px;
+  font-family:"Baloo 2", sans-serif;
 }
-#searchBox::placeholder{ color:rgba(255,246,232,0.6); font-style:italic; }
+#searchBox::placeholder{ color:rgba(255,246,232,0.55); }
 
-/* left artist card */
-#artistCard{
-  position:absolute; left:28px; top:50%; transform:translateY(-50%);
-  width:260px; padding:14px; border-radius:12px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12));
-  border:1px solid rgba(255,245,230,0.06);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-  display:none; z-index:40;
-}
-#artistImage{ width:100%; height:0; padding-bottom:100%; border-radius:10px; object-fit:cover; background:linear-gradient(135deg,#3b2b20,#5a3f2b) }
-#artistName{ margin:10px 0 4px 0; font-size:18px; font-weight:700; color:var(--muted) }
-.hometown{ color:var(--dim); font-size:13px; margin-bottom:10px }
-#viewRelatedBtn{ width:100%; padding:10px; border-radius:10px; border:none; background:linear-gradient(180deg,var(--gold),var(--orange)); color:#1b1208; font-weight:700; cursor:pointer }
-
-/* right connections panel */
-#relatedBubble{
-  position:absolute; right:28px; top:50%; transform:translateY(-50%);
-  width:340px; max-height:70vh; overflow:auto; padding:14px; border-radius:12px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12));
-  border:1px solid rgba(255,245,230,0.06);
-  display:none; z-index:40;
-}
-#relatedTitle{ font-size:18px; font-weight:700; margin-bottom:10px; color:var(--muted) }
-.relatedRow{ display:flex; gap:10px; padding:8px; margin-bottom:10px; border-radius:8px; background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.06)); cursor:pointer; align-items:center }
-.relatedRow:hover{ transform:translateY(-2px); box-shadow:0 8px 20px rgba(0,0,0,0.35) }
-.relatedRow img{ width:56px; height:56px; border-radius:6px; object-fit:cover; background:#3b2b20 }
-.track{ display:flex; gap:8px; align-items:center; font-size:13px; color:var(--dim); margin-top:6px }
-.track img{ width:36px; height:36px; border-radius:4px; object-fit:cover }
-
-/* mini popup anchored to node */
+/* ===== MINI POPUP (anchored to a clicked node) ===== */
 #miniPanel{
   position:absolute; z-index:50; display:none;
-  min-width:200px; max-width:260px; padding:10px; border-radius:10px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12));
-  border:1px solid rgba(255,245,230,0.06);
-  box-shadow:0 12px 30px rgba(0,0,0,0.5);
+  width:230px; padding:14px; border-radius:16px; /* ADJUST: popup size/roundness */
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.3));
+  border:2px solid var(--orange);
+  box-shadow:0 14px 34px rgba(0,0,0,0.55);
 }
+#miniPanel img{
+  width:100%; aspect-ratio:1/1; object-fit:cover;
+  border-radius:10px; margin-bottom:8px;
+  background:linear-gradient(135deg,var(--avocado),var(--gold));
+}
+#miniPanel .miniName{ font-family:"Bungee", sans-serif; font-size:15px; color:var(--cream); }
+#miniPanel .miniRel{
+  display:inline-block; margin:4px 0; padding:2px 10px; border-radius:999px;
+  font-size:11px; font-weight:700; background:var(--gold); color:#1b1208;
+}
+#miniPanel .miniHometown{ font-size:12px; color:var(--dim); margin-bottom:8px; }
+#miniPanel .miniTracks{ font-size:12px; color:var(--dim); line-height:1.5; margin-bottom:10px; }
+#miniOpen{
+  width:100%; padding:9px; border-radius:10px; border:none;
+  background:linear-gradient(180deg,var(--gold),var(--orange));
+  color:#1b1208; font-weight:800; font-family:"Baloo 2",sans-serif; cursor:pointer;
+}
+#miniOpen:hover{ filter:brightness(1.1); }
 
-/* recenter + spinner */
-#recenterBtn{ position:absolute; right:28px; bottom:28px; z-index:40; width:46px; height:46px; border-radius:50%; border:1px solid rgba(255,245,230,0.08); background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12)); color:var(--paper); cursor:pointer }
-#spinner{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:44px; height:44px; border-radius:50%; border:4px solid rgba(255,245,230,0.12); border-top-color:var(--gold); display:none; z-index:60; animation:spin .8s linear infinite }
+/* ===== RECENTER + SPINNER ===== */
+#recenterBtn{
+  position:absolute; right:30px; bottom:30px; z-index:40;
+  width:48px; height:48px; border-radius:50%;
+  border:2px solid var(--gold);
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.25));
+  color:var(--cream); font-size:20px; cursor:pointer;
+}
+#recenterBtn:hover{ background:var(--orange); }
+
+#spinner{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:46px; height:46px; border-radius:50%; z-index:60; display:none;
+  border:5px solid rgba(255,246,232,0.15); border-top-color:var(--orange);
+  animation:spin .8s linear infinite; /* ADJUST: spin speed */
+}
 @keyframes spin{ to{ transform:translate(-50%,-50%) rotate(360deg) } }
-canvas{ display:block; width:100vw; height:100vh }
 </style>
 </head>
 <body>
 
-<div id="artistCard" aria-hidden="true">
-  <img id="artistImage" alt="artist image">
-  <h2 id="artistName"></h2>
-  <div id="artistHometown" class="hometown"></div>
-  <button id="viewRelatedBtn">View Related Artists</button>
-</div>
-
-<div id="relatedBubble" aria-hidden="true">
-  <div id="relatedTitle">Connections</div>
-  <div id="relatedList"></div>
-</div>
+<div id="bgLayer"></div>
 
 <div id="miniPanel" aria-hidden="true"></div>
 
@@ -118,7 +123,7 @@ canvas{ display:block; width:100vw; height:100vh }
   <input id="searchBox" placeholder="Search an artist..." autocomplete="off" />
 </div>
 
-<button id="recenterBtn" title="Recenter">⟳</button>
+<button id="recenterBtn" title="Recenter">&#8635;</button>
 <div id="spinner" aria-hidden="true"></div>
 <canvas id="globe"></canvas>
 
@@ -128,22 +133,22 @@ canvas{ display:block; width:100vw; height:100vh }
 
 <script type="module">
 import * as THREE from "three";
-import {OrbitControls} from "three/addons/controls/OrbitControls.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
-/* =====================
-   SETUP
-   ===================== */
 const API_BASE_URL = "https://backend-ivory-gamma-74.vercel.app";
+
+// =====================
+// SETUP
+// =====================
 const canvas = document.getElementById("globe");
-const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000000);
 
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0,0,3);
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(0, 0, 3);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -151,8 +156,7 @@ controls.dampingFactor = 0.06;
 controls.minDistance = 1.3;
 controls.maxDistance = 8;
 controls.rotateSpeed = 0.6;
-controls.screenSpacePanning = true; // pan in screen space
-
+controls.screenSpacePanning = true;
 controls.mouseButtons = {
   LEFT: THREE.MOUSE.PAN,
   MIDDLE: THREE.MOUSE.DOLLY,
@@ -161,27 +165,21 @@ controls.mouseButtons = {
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.7));
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-dirLight.position.set(5,3,5);
+dirLight.position.set(5, 3, 5);
 scene.add(dirLight);
 
-/* =====================
-   BUILD STARS + EARTH
-   ===================== */
-const starsGeometry = new THREE.BufferGeometry();
-const starPositions = [];
-for(let i=0;i<800;i++){
-  const r = 20;
-  starPositions.push((Math.random()-.5)*r, (Math.random()-.5)*r, (Math.random()-.5)*r);
-}
-starsGeometry.setAttribute("position", new THREE.Float32BufferAttribute(starPositions,3));
-scene.add(new THREE.Points(starsGeometry, new THREE.PointsMaterial({ color:0xffffff, size:0.03 })));
-
-const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(1,64,64), new THREE.MeshPhongMaterial({ color:0x0b0a08, shininess:2 }));
+// =====================
+// EARTH (solid sphere, warm tone, opaque so nodes occlude correctly)
+// =====================
+const earthMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(1, 64, 64),
+  new THREE.MeshPhongMaterial({ color: 0x2b2010, shininess: 4 }) // ADJUST: earth base color
+);
 scene.add(earthMesh);
 
-function latLonToVector3(lat, lon, radius=1.01){
-  const phi = (90 - lat) * Math.PI/180;
-  const theta = (lon + 180) * Math.PI/180;
+function latLonToVector3(lat, lon, radius = 1) {
+  const phi = (90 - lat) * (Math.PI / 180);
+  const theta = (lon + 180) * (Math.PI / 180);
   return new THREE.Vector3(
     -radius * Math.sin(phi) * Math.cos(theta),
     radius * Math.cos(phi),
@@ -189,296 +187,299 @@ function latLonToVector3(lat, lon, radius=1.01){
   );
 }
 
-/* =====================
-   COUNTRY LINES
-   ===================== */
-const countryGroup = new THREE.Group(); scene.add(countryGroup);
-fetch("./geojson/countries.json").then(r=>r.json()).then(json=>{
-  const mat = new THREE.LineBasicMaterial({ color:0xe6dccb, transparent:true, opacity:0.22 });
-  json.features.forEach(f=>{
-    if(!f.geometry) return;
-    let polygons = [];
-    if(f.geometry.type === "Polygon") polygons = [f.geometry.coordinates];
-    if(f.geometry.type === "MultiPolygon") polygons = f.geometry.coordinates;
-    polygons.forEach(poly=>{
-      poly.forEach(ring=>{
-        const pts = ring.map(p => latLonToVector3(p[1], p[0], 1.01));
-        countryGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+// =====================
+// COUNTRY BORDERS (from your countries.json)
+// =====================
+const countryGroup = new THREE.Group();
+scene.add(countryGroup);
+
+fetch("./geojson/countries.json")
+  .then((r) => r.json())
+  .then((json) => {
+    const mat = new THREE.LineBasicMaterial({
+      color: 0xf0d9a8, // ADJUST: border line color
+      transparent: true,
+      opacity: 0.35     // ADJUST: border visibility
+    });
+
+    json.features.forEach((f) => {
+      if (!f.geometry) return;
+
+      let polygons = [];
+      if (f.geometry.type === "Polygon") polygons = [f.geometry.coordinates];
+      if (f.geometry.type === "MultiPolygon") polygons = f.geometry.coordinates;
+
+      polygons.forEach((poly) => {
+        poly.forEach((ring) => {
+          const pts = ring.map((p) => latLonToVector3(p[1], p[0], 1.005));
+          countryGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+        });
       });
     });
-  });
-}).catch(()=>{});
+  })
+  .catch((err) => console.error("Could not load countries.json", err));
 
-/* =====================
-   MARKERS + GRAPH
-   ===================== */
-const markersGroup = new THREE.Group(); scene.add(markersGroup);
-const nodesGroup = new THREE.Group(); scene.add(nodesGroup);
-const linesGroup = new THREE.Group(); scene.add(linesGroup);
+// =====================
+// NODES + LINES (single system — one mesh per artist, no duplicate markers)
+// =====================
+const nodesGroup = new THREE.Group();
+scene.add(nodesGroup);
 
-const nodeGeom = new THREE.SphereGeometry(0.045, 16, 16);
-const createdNodes = new Map();
+const linesGroup = new THREE.Group();
+scene.add(linesGroup);
 
-function nodeKey(name, lat, lon){ return `${name}||${Number(lat)||''}||${Number(lon)||''}`; }
+const NODE_RADIUS = 1.06; // ADJUST: how far above the surface nodes float
+const nodeGeom = new THREE.SphereGeometry(0.03, 16, 16); // ADJUST: node size
 
-function createMarker(lat, lon, data){
-  if(lat==null || lon==null) return null;
-  const key = nodeKey(data.name, lat, lon);
-  if(createdNodes.has(key)) return createdNodes.get(key);
-  const pos = latLonToVector3(Number(lat), Number(lon), 1.02);
-  const geom = new THREE.SphereGeometry(0.015, 10, 10);
-  const mat = new THREE.MeshStandardMaterial({ color: 0xd1a85a, emissive:0x3b2208, metalness:0.2, roughness:0.6 });
-  const mesh = new THREE.Mesh(geom, mat);
-  mesh.position.copy(pos);
-  mesh.userData = data || {};
-  markersGroup.add(mesh);
-  createdNodes.set(key, mesh);
-  return mesh;
+function clearGraph() {
+  while (nodesGroup.children.length) nodesGroup.remove(nodesGroup.children[0]);
+  while (linesGroup.children.length) linesGroup.remove(linesGroup.children[0]);
 }
 
-function addNode(artist, isBase){
+function addNode(artist, isBase) {
   const lat = artist.latitude != null ? Number(artist.latitude) : null;
   const lon = artist.longitude != null ? Number(artist.longitude) : null;
-  if(lat==null || lon==null) return null;
-  const key = nodeKey(artist.name, lat, lon);
-  if(createdNodes.has(key)) return createdNodes.get(key).position.clone();
-  const mat = new THREE.MeshBasicMaterial({ color: isBase ? 0xfff6e8 : 0xf0e6d6 });
+  if (lat == null || lon == null) return null;
+
+  const mat = new THREE.MeshBasicMaterial({
+    color: isBase ? 0xfff6e8 : 0xd9642a // ADJUST: base vs related node color
+  });
   const mesh = new THREE.Mesh(nodeGeom, mat);
-  const pos = latLonToVector3(lat, lon, 1.04);
+  const pos = latLonToVector3(lat, lon, NODE_RADIUS);
   mesh.position.copy(pos);
   mesh.userData = artist;
   nodesGroup.add(mesh);
-  createdNodes.set(key, mesh);
   return pos;
 }
 
-function addLine(posA, posB){
-  if(!posA || !posB) return;
-  const mid = posA.clone().add(posB).multiplyScalar(0.5).normalize().multiplyScalar(1.25);
-  const curve = new THREE.QuadraticBezierCurve3(posA, mid, posB);
-  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(40)),
-    new THREE.LineBasicMaterial({ color:0xd1a85a, transparent:true, opacity:0.78 }));
-  linesGroup.add(line);
+// arcs along the outside of the sphere using spherical interpolation,
+// so it can't dip through the earth no matter where the two points are
+function addLine(posA, posB) {
+  if (!posA || !posB) return;
+
+  const dirA = posA.clone().normalize();
+  const dirB = posB.clone().normalize();
+  let dot = Math.max(-1, Math.min(1, dirA.dot(dirB)));
+  const theta = Math.acos(dot);
+
+  const segments = 32;
+  const points = [];
+
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+
+    let dir;
+    if (theta < 1e-4) {
+      dir = dirA.clone();
+    } else {
+      const a = Math.sin((1 - t) * theta) / Math.sin(theta);
+      const b = Math.sin(t * theta) / Math.sin(theta);
+      dir = dirA.clone().multiplyScalar(a).add(dirB.clone().multiplyScalar(b)).normalize();
+    }
+
+    const bulge = NODE_RADIUS + Math.sin(t * Math.PI) * 0.12; // ADJUST: arc height
+    points.push(dir.multiplyScalar(bulge));
+  }
+
+  const geometry = new THREE.BufferGeometry().setFromPoints(points);
+  const material = new THREE.LineBasicMaterial({
+    color: 0xc08b2e, // ADJUST: line color
+    transparent: true,
+    opacity: 0.8
+  });
+  linesGroup.add(new THREE.Line(geometry, material));
 }
 
-/* =====================
-   UI + FETCH
-   ===================== */
+// =====================
+// UI HELPERS
+// =====================
 const spinner = document.getElementById("spinner");
 const searchBox = document.getElementById("searchBox");
-const artistCard = document.getElementById("artistCard");
-const artistImage = document.getElementById("artistImage");
-const artistName = document.getElementById("artistName");
-const artistHometown = document.getElementById("artistHometown");
-const viewRelatedBtn = document.getElementById("viewRelatedBtn");
-const relatedBubble = document.getElementById("relatedBubble");
-const relatedList = document.getElementById("relatedList");
 const miniPanel = document.getElementById("miniPanel");
 const recenterBtn = document.getElementById("recenterBtn");
 
 let globeRotating = true;
 let resumeTimeout = null;
 
-function showSpinner(show){ spinner.style.display = show ? "block" : "none"; }
-
-/* =====================
-   RENDER ARTIST CARD
-   ===================== */
-function renderArtistCard(artist){
-  if(!artist) return;
-  artistImage.src = artist.image || artist.image_url || "";
-  artistImage.alt = artist.name || "artist";
-  artistName.textContent = artist.name || "Unknown";
-  artistHometown.textContent = artist.hometown || "";
-  artistCard.style.display = "block";
+function showSpinner(show) {
+  spinner.style.display = show ? "block" : "none";
 }
 
-/* =====================
-   SORT + RENDER RELATED
-   ===================== */
-const REL_PRIORITY = { member:1, member_of_band:1, discovered:2, discovered_by:2, sibling:3, family:3, similar:4, collaboration:5, collab:5 };
-function relPriority(relType){ if(!relType) return 99; const k = relType.toLowerCase().replace(/\s+/g,'_'); return REL_PRIORITY[k] || 50; }
+function showMiniPanelAt(screenX, screenY, artist) {
+  const tracks = (artist.top_tracks || [])
+    .slice(0, 5)
+    .map((t) => `<div>${t.name}</div>`)
+    .join("");
 
-function renderSidePanel(data){
-  relatedList.innerHTML = "";
-  const list = (data.related || []).slice().sort((a,b)=> relPriority(a.rel_type) - relPriority(b.rel_type));
-  list.forEach(rel=>{
-    const row = document.createElement("div");
-    row.className = "relatedRow";
-    const tracks = (rel.top_tracks || []).slice(0,2).map(t=>`<div class="track"><img src="${t.album_image||''}" alt=""><div>${t.name}</div></div>`).join("");
-    row.innerHTML = `
-      <img src="${rel.image||rel.image_url||''}" alt="">
-      <div style="flex:1">
-        <div style="font-weight:700;color:var(--muted)">${rel.name}</div>
-        <div style="font-size:12px;color:var(--dim)">${rel.rel_type||'related'}</div>
-        <div>${tracks}</div>
-      </div>
-    `;
-    row.onclick = ()=> loadArtist(rel.name);
-    relatedList.appendChild(row);
-  });
-}
-
-/* =====================
-   MINI PANEL
-   ===================== */
-function showMiniPanelAt(screenX, screenY, artist){
   miniPanel.innerHTML = `
-    <div style="font-weight:700;color:var(--muted)">${artist.name}</div>
-    <div style="font-size:13px;color:var(--dim)">${artist.hometown||''}</div>
-    <div style="margin-top:8px"><button id="miniOpen" style="padding:8px;border-radius:8px;border:none;background:linear-gradient(180deg,var(--gold),var(--orange));color:#1b1208;cursor:pointer">Open</button></div>
+    <img src="${artist.image || ""}" alt="" />
+    <div class="miniName">${artist.name}</div>
+    ${artist.rel_type ? `<div class="miniRel">${artist.rel_type}</div>` : ""}
+    <div class="miniHometown">${artist.hometown || ""}</div>
+    <div class="miniTracks">${tracks}</div>
+    <button id="miniOpen">Open</button>
   `;
+
   miniPanel.style.left = `${screenX}px`;
   miniPanel.style.top = `${screenY}px`;
   miniPanel.style.display = "block";
-  document.getElementById("miniOpen").onclick = ()=> loadArtist(artist.name);
+
+  document.getElementById("miniOpen").addEventListener("click", () => {
+    loadArtist(artist.name);
+  });
 }
 
-/* =====================
-   CLEAR GRAPH
-   ===================== */
-function clearGraph(){
-  while(nodesGroup.children.length) nodesGroup.remove(nodesGroup.children[0]);
-  while(linesGroup.children.length) linesGroup.remove(linesGroup.children[0]);
-  while(markersGroup.children.length) markersGroup.remove(markersGroup.children[0]);
-  createdNodes.clear();
-}
+// =====================
+// CAMERA FOCUS (fly to a lat/lon)
+// =====================
+function focusOnLatLon(lat, lon) {
+  if (lat == null || lon == null) return Promise.resolve();
 
-/* =====================
-   CAMERA FOCUS + ROTATION CONTROL
-   ===================== */
-function focusOnLatLon(lat, lon){
-  if(lat==null || lon==null) return new Promise(res=>res());
-  const target = latLonToVector3(Number(lat), Number(lon), 1.02);
+  const target = latLonToVector3(Number(lat), Number(lon), NODE_RADIUS);
   const camTarget = target.clone().multiplyScalar(2.2);
   const startPos = camera.position.clone();
   const startTarget = controls.target.clone();
   const frames = 36;
   let i = 0;
-  return new Promise(resolve=>{
-    function step(){
+
+  return new Promise((resolve) => {
+    function step() {
       i++;
-      const t = i/frames;
+      const t = i / frames;
       camera.position.lerpVectors(startPos, camTarget, t);
       controls.target.lerpVectors(startTarget, target, t);
       controls.update();
-      if(i<frames) requestAnimationFrame(step);
+      if (i < frames) requestAnimationFrame(step);
       else resolve();
     }
     step();
   });
 }
 
-/* =====================
-   FETCH WITH TIMEOUT
-   ===================== */
-async function fetchWithTimeout(url, timeout = 9000){
+// =====================
+// FETCH WITH TIMEOUT
+// =====================
+async function fetchWithTimeout(url, timeout = 15000) {
   const controller = new AbortController();
-  const timer = setTimeout(()=> controller.abort(), timeout);
-  try{
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timer);
     return res;
-  }catch(err){
+  } catch (err) {
     clearTimeout(timer);
     throw err;
   }
 }
 
-/* =====================
-   LOAD ARTIST
-   ===================== */
-async function loadArtist(name){
-  if(!name) return;
+// =====================
+// LOAD ARTIST
+// =====================
+async function loadArtist(name) {
+  if (!name) return;
+
   showSpinner(true);
   globeRotating = false;
   miniPanel.style.display = "none";
-  if(resumeTimeout){ clearTimeout(resumeTimeout); resumeTimeout = null; }
-  try{
-    const res = await fetchWithTimeout(`${API_BASE_URL}/relations/${encodeURIComponent(name)}`, 9000);
-    if(!res.ok){ alert("Artist not found"); return; }
+  if (resumeTimeout) { clearTimeout(resumeTimeout); resumeTimeout = null; }
+
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/relations/${encodeURIComponent(name)}`);
+
+    if (!res.ok) {
+      alert("Artist not found.");
+      return;
+    }
+
     const data = await res.json();
     clearGraph();
-    if(data.artist){
-      addNode(data.artist, true);
-      createMarker(data.artist.latitude, data.artist.longitude, data.artist);
-    }
-    (data.related || []).forEach(rel=>{
-      const lat = rel.latitude != null ? Number(rel.latitude) : null;
-      const lon = rel.longitude != null ? Number(rel.longitude) : null;
-      if(lat==null || lon==null) return;
+
+    const basePos = addNode(data.artist, true);
+
+    data.related.forEach((rel) => {
       const relPos = addNode(rel, false);
-      const artistPos = latLonToVector3(Number(data.artist.latitude), Number(data.artist.longitude), 1.04);
-      if(relPos && artistPos) addLine(artistPos, relPos);
-      createMarker(lat, lon, rel);
+      if (basePos && relPos) addLine(basePos, relPos);
     });
-    renderArtistCard(data.artist);
-    renderSidePanel(data);
+
     await focusOnLatLon(data.artist.latitude, data.artist.longitude);
-    // resume rotation after short pause
-    resumeTimeout = setTimeout(()=> { globeRotating = true; resumeTimeout = null; }, 3000);
-  }catch(err){
-    if(err.name === "AbortError") alert("Request timed out");
-    else alert("Something went wrong");
+
+    resumeTimeout = setTimeout(() => {
+      globeRotating = true;
+      resumeTimeout = null;
+    }, 3000);
+  } catch (err) {
+    if (err.name === "AbortError") alert("Request timed out. Try again.");
+    else alert("Something went wrong.");
     console.error(err);
-  }finally{
+  } finally {
     showSpinner(false);
   }
 }
 
-/* =====================
-   RAYCAST CLICK NODES
-   ===================== */
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-window.addEventListener("click", e=>{
-  if(e.target.closest("#artistCard") || e.target.closest("#relatedBubble") || e.target.closest("#search") || e.target.closest("#recenterBtn")) return;
-  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-  raycaster.setFromCamera(mouse, camera);
-  const hits = raycaster.intersectObjects(nodesGroup.children.concat(markersGroup.children), true);
-  if(hits.length){
-    const artist = hits[0].object.userData;
-    if(artist && artist.name){
-      const pos = hits[0].point.clone();
-      const screen = pos.project(camera);
-      const sx = (screen.x * 0.5 + 0.5) * window.innerWidth;
-      const sy = ( -screen.y * 0.5 + 0.5) * window.innerHeight;
-      showMiniPanelAt(sx + 12, sy - 12, artist);
-    }
-  }
+// =====================
+// SEARCH
+// =====================
+searchBox.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") loadArtist(e.target.value.trim());
 });
 
-/* =====================
-   UI HOOKS
-   ===================== */
-document.getElementById("viewRelatedBtn").onclick = ()=> {
-  relatedBubble.style.display = relatedBubble.style.display === "block" ? "none" : "block";
-};
-searchBox.addEventListener("keydown", e=>{ if(e.key === "Enter") loadArtist(e.target.value.trim()); });
-recenterBtn.onclick = ()=> { camera.position.set(0,0,3); controls.target.set(0,0,0); controls.update(); globeRotating = true; };
+// =====================
+// RECENTER
+// =====================
+recenterBtn.addEventListener("click", () => {
+  camera.position.set(0, 0, 3);
+  controls.target.set(0, 0, 0);
+  controls.update();
+  globeRotating = true;
+});
 
-/* =====================
-   ANIMATE
-   ===================== */
-function animate(){
+// =====================
+// CLICK HANDLING (raycast onto nodes only)
+// =====================
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+window.addEventListener("click", (e) => {
+  if (e.target.closest("#miniPanel") || e.target.closest("#search") || e.target.closest("#recenterBtn")) return;
+
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(nodesGroup.children);
+
+  if (hits.length === 0) {
+    miniPanel.style.display = "none";
+    return;
+  }
+
+  const artist = hits[0].object.userData;
+  const screen = hits[0].point.clone().project(camera);
+  const sx = (screen.x * 0.5 + 0.5) * window.innerWidth;
+  const sy = (-screen.y * 0.5 + 0.5) * window.innerHeight;
+
+  showMiniPanelAt(sx + 12, sy - 12, artist);
+});
+
+// =====================
+// ANIMATION LOOP
+// =====================
+function animate() {
   requestAnimationFrame(animate);
-  if(globeRotating){
-    earthMesh.rotation.y += 0.0008;
+
+  if (globeRotating) {
+    earthMesh.rotation.y += 0.0008; // ADJUST: auto-rotation speed
     countryGroup.rotation.y += 0.0008;
     nodesGroup.rotation.y += 0.0008;
-    markersGroup.rotation.y += 0.0008;
     linesGroup.rotation.y += 0.0008;
   }
+
   controls.update();
   renderer.render(scene, camera);
 }
 animate();
 
-/* =====================
-   RESIZE
-   ===================== */
-window.addEventListener("resize", ()=>{
+window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);

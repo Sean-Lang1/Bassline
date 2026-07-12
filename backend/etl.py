@@ -43,16 +43,16 @@ def cache_write(cache_name, data):
 
 
 # =====================
-# SAFE CACHE KEY 
+# SAFE CACHE KEY
 # =====================
 def cache_key(name):
     return name.replace(" ", "_").replace("/", "_").replace(",", "_")
 
 # =====================
-#  RETRY HELPER
+# RETRY HELPER
 # =====================
 def request_with_retry(method, url, max_attempts=3, backoff_seconds=2, **kwargs):
-    
+
     last_error = None
 
     for attempt in range(1, max_attempts + 1):
@@ -421,9 +421,26 @@ def get_musicbrainz_relations(artist_name):
 
 
 # =====================
+# RELATIONSHIP PRIORITY (for sorting which types matter most)
+# =====================
+REL_PRIORITY = {
+    "member of band": 1,
+    "discovered": 2,
+    "discovered by": 2,
+    "sibling": 3,
+    "married": 3,
+    "similar": 4,
+    "collaboration": 4,
+}
+
+def rel_priority(rel_type):
+    return REL_PRIORITY.get(rel_type, 99)
+
+
+# =====================
 # BUILD RELATIONS
 # =====================
-def build_artist_relations(artist_name, limit_related=10):
+def build_artist_relations(artist_name, limit_related=6):
     conn = get_connection()
     cur = conn.cursor()
 
@@ -442,62 +459,23 @@ def build_artist_relations(artist_name, limit_related=10):
     similar = get_lastfm_similar(artist_name)
     mb_relations = get_musicbrainz_relations(artist_name)
 
-    rel_bucket = []
-    similar_bucket = []
+    candidates = []
     seen = set()
 
-    for rel in mb_relations:
-        name = rel["name"]
-
+    def try_add(name, rel_type):
         if not is_valid_artist(name, artist_name):
-            continue
+            return
         if name.lower() in seen:
-            continue
+            return
         seen.add(name.lower())
 
         spotify = search_spotify_artist(name)
         if not spotify or spotify["id"] == base_id:
-            continue
+            return
 
         info = get_lastfm_artist_info(name)
 
-        rel_bucket.append({
-            "name": name,
-            "spotify_id": spotify["id"],
-            "listeners": info["listeners"],
-            "summary": info["summary"],
-            "image": spotify.get("image"),
-            "rel_type": rel["rel_type"]
-        })
-
-    discovered_bucket = []
-
-    for mentor, discovered in DISCOVERED_PAIRS:
-        name = None
-        rel_type = None
-
-        if mentor.lower() == artist_name.lower():
-            name = discovered
-            rel_type = "discovered"
-        elif discovered.lower() == artist_name.lower():
-            name = mentor
-            rel_type = "discovered by"
-
-        if not name:
-            continue
-        if not is_valid_artist(name, artist_name):
-            continue
-        if name.lower() in seen:
-            continue
-        seen.add(name.lower())
-
-        spotify = search_spotify_artist(name)
-        if not spotify or spotify["id"] == base_id:
-            continue
-
-        info = get_lastfm_artist_info(name)
-
-        discovered_bucket.append({
+        candidates.append({
             "name": name,
             "spotify_id": spotify["id"],
             "listeners": info["listeners"],
@@ -506,77 +484,34 @@ def build_artist_relations(artist_name, limit_related=10):
             "rel_type": rel_type
         })
 
+    for rel in mb_relations:
+        try_add(rel["name"], rel["rel_type"])
+
+    for mentor, discovered in DISCOVERED_PAIRS:
+        if mentor.lower() == artist_name.lower():
+            try_add(discovered, "discovered")
+        elif discovered.lower() == artist_name.lower():
+            try_add(mentor, "discovered by")
+
     for rel in similar:
         name = rel["name"]
-
         joint = extract_joint_artist(name, artist_name)
         if joint:
-            name = joint
+            try_add(joint, "collaboration")
+        else:
+            try_add(name, "similar")
 
-            if not is_valid_artist(name, artist_name):
-                continue
-            if name.lower() in seen:
-                continue
-            seen.add(name.lower())
+    # sort by relationship priority first, then by popularity within each tier
+    candidates.sort(key=lambda x: (rel_priority(x["rel_type"]), -x["listeners"]))
 
-            spotify = search_spotify_artist(name)
-            if not spotify or spotify["id"] == base_id:
-                continue
-
-            info = get_lastfm_artist_info(name)
-
-            rel_bucket.append({
-                "name": name,
-                "spotify_id": spotify["id"],
-                "listeners": info["listeners"],
-                "summary": info["summary"],
-                "image": spotify.get("image"),
-                "rel_type": "collaboration"
-            })
-            continue
-
-        if not is_valid_artist(name, artist_name):
-            continue
-        if name.lower() in seen:
-            continue
-        seen.add(name.lower())
-
-        spotify = search_spotify_artist(name)
-        if not spotify or spotify["id"] == base_id:
-            continue
-
-        info = get_lastfm_artist_info(name)
-
-        similar_bucket.append({
-            "name": name,
-            "spotify_id": spotify["id"],
-            "listeners": info["listeners"],
-            "summary": info["summary"],
-            "image": spotify.get("image"),
-            "rel_type": "similar"
-        })
-
-    rel_bucket.sort(key=lambda x: x["listeners"], reverse=True)
-    similar_bucket.sort(key=lambda x: x["listeners"], reverse=True)
-    discovered_bucket.sort(key=lambda x: x["listeners"], reverse=True)
-
-    final = rel_bucket[:3]
-
-    i = 0
-    while len(final) < limit_related and i < len(similar_bucket):
-        final.append(similar_bucket[i])
-        i += 1
-
-    final = final + discovered_bucket[:2]
-
-    final.sort(key=lambda x: x["listeners"], reverse=True)
+    final = candidates[:limit_related]
 
     related = []
     links = []
 
     for c in final:
         import_artist(c["name"])
-        print(c["name"], "[", c["listeners"], "]")
+        print(c["name"], "[", c["listeners"], "]", c["rel_type"])
 
         info = get_lastfm_artist_info(c["name"])
         lat, lon = geocode_hometown(info.get("hometown", ""))
