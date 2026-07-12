@@ -184,12 +184,14 @@ def get_lastfm_artist_info(artist_name):
         if bx != -1:
             after = bio[bx + len("born in"):]
 
+            after = after.strip()
+
             parts = after.split(",")
 
             if len(parts) >= 2:
-                hometown = parts[0].strip() + ", " + parts[1].strip()
+                hometown = parts[0].strip() + ", " + parts[1].split(".")[0].strip()
             else:
-                hometown = parts[0].strip()
+                hometown = parts[0].split(".")[0].strip()
 
     result = {
         "listeners": listeners,
@@ -582,6 +584,7 @@ def build_artist_relations(artist_name, limit_related=10):
         c["latitude"] = lat
         c["longitude"] = lon
 
+        c["top_tracks"] = get_lastfm_top_tracks(c["name"])
         related.append(c)
 
         links.append({
