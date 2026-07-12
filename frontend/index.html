@@ -1,109 +1,184 @@
+```html
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Bassline Globe</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Bassline Globe — Vintage Music Map</title>
 <style>
+:root{
+  --bg:#0b0604;
+  --paper:#f6efe6;
+  --gold:#b88a3a;
+  --gold-2:#d1a85a;
+  --panel:rgba(20,12,8,0.6);
+  --glass:rgba(255,250,240,0.06);
+  --dim:rgba(246,239,230,0.7);
+  --glow:rgba(209,168,90,0.16);
+  --shadow:rgba(0,0,0,0.6);
+}
+*{box-sizing:border-box}
 body{
-margin:0;
-overflow:hidden;
-background:
-radial-gradient(circle at 50% 40%, #182033 0%, #050505 65%);
-font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial,sans-serif;
+  margin:0;
+  height:100vh;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(255,255,255,0.02), transparent 10%),
+    linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.06)),
+    var(--bg);
+  color:var(--paper);
+  font-family: "Georgia","Times New Roman",serif;
+  overflow:hidden;
 }
 
-:root{
---accent:#ffffff;
---glass:rgba(255,255,255,.10);
---border:rgba(255,255,255,.18);
---panel-bg:rgba(255,255,255,.08);
---accent-glow:rgba(255,255,255,.25);
---text-dim:rgba(255,255,255,.6);
+/* Search pill */
+#search{
+  position:absolute;
+  left:50%;
+  transform:translateX(-50%);
+  bottom:86px;
+  z-index:20;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:14px 28px;
+  border-radius:999px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12));
+  border:1px solid rgba(255,245,230,0.12);
+  box-shadow: 0 8px 30px var(--shadow), 0 0 40px var(--glow);
+  min-width:460px;
+  max-width:86%;
 }
-#search{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);display:flex;align-items:center;padding:12px 22px;border-radius:999px;background:var(--panel-bg);border:1px solid var(--accent-glow);box-shadow:0 0 20px var(--accent-glow)}
-#searchBox{background:transparent;border:none;outline:none;color:white;width:240px;font-size:15px}
+#searchBox{
+  background:transparent;
+  border:none;
+  outline:none;
+  color:var(--paper);
+  font-size:18px;
+  width:420px;
+  font-family:inherit;
+}
+#searchBox::placeholder{ color:rgba(246,239,230,0.6); font-style:italic; }
+
+/* Artist card (left) */
 #artistCard{
-position:absolute;
-top:50%;
-left:50%;
-transform:
-translate(-50%,-50%)
-translateX(-430px);
-width:230px;
-padding:18px;
-border-radius:24px;
-background:rgba(255,255,255,.1);
-backdrop-filter:blur(30px);
-box-shadow:
-0 30px 80px rgba(0,0,0,.5);
+  position:absolute;
+  left:36px;
+  top:50%;
+  transform:translateY(-50%);
+  width:260px;
+  padding:16px;
+  border-radius:14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12));
+  border:1px solid rgba(255,245,230,0.06);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  display:none;
+  z-index:20;
 }
 #artistImage{
-width:100%;
-aspect-ratio:1;
-object-fit:cover;
-border-radius:18px;
-margin-bottom:12px;
+  width:100%;
+  height:0;
+  padding-bottom:100%;
+  border-radius:10px;
+  object-fit:cover;
+  background:linear-gradient(135deg, #3b2b20, #5a3f2b);
+  box-shadow: inset 0 -6px 18px rgba(0,0,0,0.35);
 }
-.hometown{color:var(--text-dim);font-size:13px;margin-bottom:12px}
-#viewRelatedBtn{width:100%;padding:10px;border:none;border-radius:10px;background:var(--accent);color:white;font-weight:bold;cursor:pointer}
-#relatedBubble{
-position:absolute;
-right:50px;
-bottom:50px;
-width:280px;
-padding:16px;
-border-radius:25px;
-background:rgba(255,255,255,.08);
-backdrop-filter:blur(20px);
-}
-.relatedRow{display:flex;gap:10px;padding:10px;margin-bottom:8px;background:rgba(255,255,255,.05);border-radius:10px;cursor:pointer}
-.relatedRow:hover{background:rgba(255,255,255,.1)}
-.relatedRow img{width:56px;height:56px;border-radius:8px;object-fit:cover}
-#relatedTitle{
-font-size:18px;
-font-weight:bold;
-margin-bottom:12px;
-}
-.relName{font-weight:bold}
-.relType{display:inline-block;background:var(--accent);padding:2px 8px;border-radius:999px;font-size:11px}
-.track{
-display:flex;
-align-items:center;
-gap:8px;
-margin-top:8px;
+#artistName{ margin:10px 0 4px 0; font-size:18px; color:var(--paper); }
+.hometown{ color:var(--dim); font-size:13px; margin-bottom:10px; }
+#viewRelatedBtn{
+  width:100%;
+  padding:10px;
+  border-radius:10px;
+  border:none;
+  background:linear-gradient(180deg,var(--gold),var(--gold-2));
+  color:#1b1208;
+  font-weight:700;
+  cursor:pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
 }
 
-.track img{
-width:35px;
-height:35px;
-border-radius:8px;
+/* Connections panel (right) */
+#relatedBubble{
+  position:absolute;
+  right:36px;
+  top:50%;
+  transform:translateY(-50%);
+  width:340px;
+  max-height:70vh;
+  overflow:auto;
+  padding:14px;
+  border-radius:14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12));
+  border:1px solid rgba(255,245,230,0.06);
+  display:none;
+  z-index:20;
 }
-#recenterBtn{position:absolute;right:30px;bottom:30px;width:44px;height:44px;border-radius:50%;border:1px solid var(--accent-glow);background:var(--panel-bg);color:white;cursor:pointer}
-#spinner{display:none;position:absolute;top:50%;left:50%;width:40px;height:40px;margin:-20px;border:4px solid var(--accent-glow);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
+#relatedTitle{ font-size:18px; font-weight:700; margin-bottom:10px; color:var(--paper); }
+.relatedRow{
+  display:flex;
+  gap:10px;
+  padding:8px;
+  margin-bottom:10px;
+  border-radius:8px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.06));
+  cursor:pointer;
+  align-items:center;
+}
+.relatedRow:hover{ box-shadow: 0 6px 18px rgba(0,0,0,0.35); transform:translateY(-2px); }
+.relatedRow img{ width:56px; height:56px; border-radius:6px; object-fit:cover; background:#3b2b20; }
+.track{ display:flex; gap:8px; align-items:center; font-size:13px; color:var(--dim); margin-top:6px; }
+.track img{ width:36px; height:36px; border-radius:4px; object-fit:cover; }
+
+/* Recenter & spinner */
+#recenterBtn{
+  position:absolute;
+  right:36px;
+  bottom:36px;
+  z-index:20;
+  width:46px; height:46px;
+  border-radius:50%;
+  border:1px solid rgba(255,245,230,0.08);
+  background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.12));
+  color:var(--paper);
+  cursor:pointer;
+}
+#spinner{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  width:44px; height:44px;
+  border-radius:50%;
+  border:4px solid rgba(255,245,230,0.12);
+  border-top-color:var(--gold);
+  display:none;
+  z-index:30;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{ to{ transform:translate(-50%,-50%) rotate(360deg) } }
+canvas{ display:block; width:100vw; height:100vh; }
 </style>
 </head>
-
 <body>
 
-<div id="artistCard">
-<img id="artistImage">
-<h2 id="artistName"></h2>
-<div id="artistHometown" class="hometown"></div>
-<button id="viewRelatedBtn">View Related Artists</button>
+<div id="artistCard" aria-hidden="true">
+  <img id="artistImage" alt="artist image">
+  <h2 id="artistName"></h2>
+  <div id="artistHometown" class="hometown"></div>
+  <button id="viewRelatedBtn">View Related Artists</button>
 </div>
 
-<div id="relatedBubble">
-<div id="relatedTitle">Connections</div>
-<div id="relatedList"></div>
+<div id="relatedBubble" aria-hidden="true">
+  <div id="relatedTitle">Connections</div>
+  <div id="relatedList"></div>
 </div>
 
-<div id="search">
-<input id="searchBox" placeholder="Search an artist..." />
+<div id="search" role="search">
+  <input id="searchBox" placeholder="Search an artist..." autocomplete="off" />
 </div>
 
-<button id="recenterBtn">&#8635;</button>
-<div id="spinner"></div>
+<button id="recenterBtn" title="Recenter">⟳</button>
+<div id="spinner" aria-hidden="true"></div>
 <canvas id="globe"></canvas>
 
 <script type="importmap">
@@ -116,619 +191,361 @@ border-radius:8px;
 </script>
 
 <script type="module">
-
 import * as THREE from "three";
 import {OrbitControls} from "three/addons/controls/OrbitControls.js";
 
-const API_BASE_URL="https://backend-ivory-gamma-74.vercel.app";
+const API_BASE_URL = "https://backend-ivory-gamma-74.vercel.app";
+const canvas = document.getElementById("globe");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
 
-const canvas=document.getElementById("globe");
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050403);
 
-const renderer=new THREE.WebGLRenderer({
- canvas,
- antialias:true
-});
-
-renderer.setSize(
- window.innerWidth,
- window.innerHeight
-);
-
-renderer.setPixelRatio(
- window.devicePixelRatio
-);
-
-const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x000000);
-
-const camera=new THREE.PerspectiveCamera(
-45,
-window.innerWidth/window.innerHeight,
-.1,
-1000
-);
-
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
 camera.position.set(0,0,3);
 
-const controls=new OrbitControls(
-camera,
-renderer.domElement
-);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 1.3;
+controls.maxDistance = 8;
+controls.rotateSpeed = 0.6;
 
-controls.enableDamping=true;
-controls.dampingFactor=.05;
-controls.minDistance=1.3;
-controls.maxDistance=8;
-
-scene.add(
-new THREE.AmbientLight(
-0xffffff,
-.7
-)
-);
-
-const dirLight=new THREE.DirectionalLight(
-0xffffff,
-.8
-);
-
-dirLight.position.set(
-5,
-3,
-5
-);
-
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+dirLight.position.set(5,3,5);
 scene.add(dirLight);
 
-const starsGeometry=new THREE.BufferGeometry();
-const starPositions=[];
-
+/* =====================
+   BUILD STARS + EARTH
+   ===================== */
+const starsGeometry = new THREE.BufferGeometry();
+const starPositions = [];
 for(let i=0;i<800;i++){
- const r=20;
- starPositions.push(
-  (Math.random()-.5)*r,
-  (Math.random()-.5)*r,
-  (Math.random()-.5)*r
- );
+  const r = 20;
+  starPositions.push((Math.random()-.5)*r, (Math.random()-.5)*r, (Math.random()-.5)*r);
 }
+starsGeometry.setAttribute("position", new THREE.Float32BufferAttribute(starPositions,3));
+scene.add(new THREE.Points(starsGeometry, new THREE.PointsMaterial({ color:0xffffff, size:0.03 })));
 
-starsGeometry.setAttribute(
-"position",
-new THREE.Float32BufferAttribute(
-starPositions,
-3
-)
+const earthMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(1,64,64),
+  new THREE.MeshBasicMaterial({ color:0x0b0a08, transparent:true, opacity:0.95 })
 );
-
-scene.add(
-new THREE.Points(
-starsGeometry,
-new THREE.PointsMaterial({
- color:0xffffff,
- size:.03
-})
-)
-);
-
-// Earth
-
-const earthMesh=
-new THREE.Mesh(
- new THREE.SphereGeometry(1,64,64),
- new THREE.MeshBasicMaterial({
-  color:0x02050f,
-  transparent:true,
-  opacity:.8
- })
-);
-
 scene.add(earthMesh);
 
-function latLonToVector3(lat,lon,radius=1.01){
-
- const phi=(90-lat)*Math.PI/180;
- const theta=(lon+180)*Math.PI/180;
-
- return new THREE.Vector3(
-  -radius*Math.sin(phi)*Math.cos(theta),
-  radius*Math.cos(phi),
-  radius*Math.sin(phi)*Math.sin(theta)
- );
-
+function latLonToVector3(lat, lon, radius=1.01){
+  const phi = (90 - lat) * Math.PI/180;
+  const theta = (lon + 180) * Math.PI/180;
+  return new THREE.Vector3(
+    -radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta)
+  );
 }
-// COUNTRY LINES
 
-const countryGroup=new THREE.Group();
+/* =====================
+   COUNTRY LINES
+   ===================== */
+const countryGroup = new THREE.Group();
 scene.add(countryGroup);
 
 fetch("./geojson/countries.json")
-.then(r=>r.json())
-.then(json=>{
-
- const material=new THREE.LineBasicMaterial({
-  color:0xffffff,
-  transparent:true,
-  opacity:.2
- });
-
- json.features.forEach(f=>{
-
-  if(!f.geometry)
-   return;
-
-  let polygons=[];
-
-  if(f.geometry.type==="Polygon")
-   polygons=[f.geometry.coordinates];
-
-  if(f.geometry.type==="MultiPolygon")
-   polygons=f.geometry.coordinates;
-
-  polygons.forEach(poly=>{
-
-   poly.forEach(ring=>{
-
-    const points=ring.map(p=>
-     latLonToVector3(
-      p[1],
-      p[0],
-      1.01
-     )
-    );
-
-    countryGroup.add(
-     new THREE.Line(
-      new THREE.BufferGeometry()
-      .setFromPoints(points),
-      material
-     )
-    );
-
-   });
-
-  });
-
- });
-
-})
- .catch(err=>{
-  console.log("country data failed",err);
- });
-
-
-// GRAPH
-
-const nodesGroup=new THREE.Group();
-scene.add(nodesGroup);
-
-const linesGroup=new THREE.Group();
-scene.add(linesGroup);
-
-const nodeGeometry=new THREE.SphereGeometry(
-.045,
-16,
-16
-);
-
-
-function clearGraph(){
-
- while(nodesGroup.children.length)
-  nodesGroup.remove(
-   nodesGroup.children[0]
-  );
-
- while(linesGroup.children.length)
-  linesGroup.remove(
-   linesGroup.children[0]
-  );
-
-}
-
-
-function addNode(artist,isBase){
-
- if(
-  artist.latitude==null ||
-  artist.longitude==null
- )
- return null;
-
-
- const mesh=new THREE.Mesh(
-  nodeGeometry,
-  new THREE.MeshBasicMaterial({
-   color:isBase?0xffffff:0xcccccc
+  .then(r=>r.json())
+  .then(json=>{
+    const mat = new THREE.LineBasicMaterial({ color:0xe6dccb, transparent:true, opacity:0.22 });
+    json.features.forEach(f=>{
+      if(!f.geometry) return;
+      let polygons = [];
+      if(f.geometry.type === "Polygon") polygons = [f.geometry.coordinates];
+      if(f.geometry.type === "MultiPolygon") polygons = f.geometry.coordinates;
+      polygons.forEach(poly=>{
+        poly.forEach(ring=>{
+          const pts = ring.map(p => latLonToVector3(p[1], p[0], 1.01));
+          countryGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+        });
+      });
+    });
   })
- );
+  .catch(()=>{ /* silent fail */ });
 
+/* =====================
+   MARKERS + GRAPH
+   ===================== */
+const markersGroup = new THREE.Group(); scene.add(markersGroup);
+const nodesGroup = new THREE.Group(); scene.add(nodesGroup);
+const linesGroup = new THREE.Group(); scene.add(linesGroup);
 
- const pos=latLonToVector3(
-  artist.latitude,
-  artist.longitude,
-  1.04
- );
+const nodeGeom = new THREE.SphereGeometry(0.045, 16, 16);
+const createdNodes = new Map(); // key: unique id (name|lat|lon)
 
-
- mesh.position.copy(pos);
- mesh.userData=artist;
-
- nodesGroup.add(mesh);
-
- return pos;
+/* small marker style */
+function createMarker(lat, lon, data){
+  if(lat==null || lon==null) return null;
+  const key = `${data.name}|${Number(lat)}|${Number(lon)}`;
+  if(createdNodes.has(key)) return createdNodes.get(key);
+  const pos = latLonToVector3(Number(lat), Number(lon), 1.02);
+  const geom = new THREE.SphereGeometry(0.015, 10, 10);
+  const mat = new THREE.MeshStandardMaterial({ color: 0xd1a85a, emissive:0x3b2208, metalness:0.2, roughness:0.6 });
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.position.copy(pos);
+  mesh.userData = data || {};
+  markersGroup.add(mesh);
+  createdNodes.set(key, mesh);
+  return mesh;
 }
 
-function addLine(posA,posB){
-
- const curve=
- new THREE.QuadraticBezierCurve3(
-  posA,
-  posA.clone()
-  .add(posB)
-  .multiplyScalar(.5)
-  .normalize()
-  .multiplyScalar(1.25),
-  posB
- );
-
- const line=new THREE.Line(
-  new THREE.BufferGeometry()
-  .setFromPoints(
-   curve.getPoints(40)
-  ),
-  new THREE.LineBasicMaterial({
-   color:0x3af2ff,
-   transparent:true,
-   opacity:.6
-  })
- );
-
- linesGroup.add(line);
-
+/* main graph node */
+function addNode(artist, isBase){
+  const lat = artist.latitude != null ? Number(artist.latitude) : null;
+  const lon = artist.longitude != null ? Number(artist.longitude) : null;
+  if(lat==null || lon==null) return null;
+  const key = `${artist.name}|${lat}|${lon}`;
+  if(createdNodes.has(key)) return createdNodes.get(key).position.clone();
+  const mat = new THREE.MeshBasicMaterial({ color: isBase ? 0xfff6e8 : 0xf0e6d6 });
+  const mesh = new THREE.Mesh(nodeGeom, mat);
+  const pos = latLonToVector3(lat, lon, 1.04);
+  mesh.position.copy(pos);
+  mesh.userData = artist;
+  nodesGroup.add(mesh);
+  createdNodes.set(key, mesh);
+  return pos;
 }
 
-function focusArtist(){
-
- camera.position.set(
- 0,
- 0,
- 2.2
- );
-
- controls.target.set(
- 0,
- 0,
- 0
- );
-
- controls.update();
-
+/* curved connection */
+function addLine(posA, posB){
+  if(!posA || !posB) return;
+  const mid = posA.clone().add(posB).multiplyScalar(0.5).normalize().multiplyScalar(1.25);
+  const curve = new THREE.QuadraticBezierCurve3(posA, mid, posB);
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(40)),
+    new THREE.LineBasicMaterial({ color:0xd1a85a, transparent:true, opacity:0.7 }));
+  linesGroup.add(line);
 }
+
+/* =====================
+   UI + INTERACTIONS
+   ===================== */
+const spinner = document.getElementById("spinner");
+const searchBox = document.getElementById("searchBox");
+const artistCard = document.getElementById("artistCard");
+const artistImage = document.getElementById("artistImage");
+const artistName = document.getElementById("artistName");
+const artistHometown = document.getElementById("artistHometown");
+const viewRelatedBtn = document.getElementById("viewRelatedBtn");
+const relatedBubble = document.getElementById("relatedBubble");
+const relatedList = document.getElementById("relatedList");
+const recenterBtn = document.getElementById("recenterBtn");
+
+let currentData = null;
+let globeRotating = true;
+let activeFetchController = null;
 
 function showSpinner(show){
-
- document.getElementById("spinner")
- .style.display=
- show?"block":"none";
-
+  spinner.style.display = show ? "block" : "none";
 }
 
+/* =====================
+   RENDER ARTIST CARD
+   ===================== */
 function renderArtistCard(artist){
-
- document.getElementById("artistCard")
- .style.display="block";
-
- document.getElementById("artistImage")
- .src=
- artist.image ||
- artist.image_url ||
- "";
-
- document.getElementById("artistName")
- .textContent=
- artist.name;
-
- document.getElementById("artistHometown")
- .textContent=
- artist.hometown || "";
-
+  if(!artist) return;
+  artistImage.src = artist.image || artist.image_url || "";
+  artistImage.alt = artist.name || "artist";
+  artistName.textContent = artist.name || "Unknown";
+  artistHometown.textContent = artist.hometown || "";
+  artistCard.style.display = "block";
+  relatedBubble.style.display = "block";
 }
 
+/* =====================
+   RENDER RELATED PANEL
+   ===================== */
 function renderSidePanel(data){
-
- const list=
- document.getElementById("relatedList");
-
- list.innerHTML="";
-
- (data.related||[])
- .forEach(rel=>{
-
-  const row=document.createElement("div");
-  row.className="relatedRow";
-
-const tracks=
-(rel.top_tracks||[])
-.slice(0,5)
-.map(t=>`
-<div class="track">
-<img src="${t.album_image||''}">
-${t.name}
-</div>
-`)
-.join("");
-
-  row.innerHTML=`
-
-  <img src="${rel.image||rel.image_url||""}">
-
-  <div>
-   <div class="relName">${rel.name}</div>
-   <div class="relType">${rel.rel_type||"similar"}</div>
-   <div class="tracks">${tracks}</div>
-  </div>
-
-  `;
-
-  row.onclick=()=>{
-   loadArtist(rel.name);
-  };
-
-  list.appendChild(row);
- });
-}
-
-// LOAD ARTIST
-
-async function loadArtist(name){
-
- if(!name)
-  return;
-
- showSpinner(true);
-
- document
- .getElementById("sidePanel")
- .classList.remove("open");
-
- try{
-
-  const res=
-  await fetch(
-   `${API_BASE_URL}/relations/${encodeURIComponent(name)}`
-  );
-
-  if(!res.ok){
-   alert("Artist not found");
-   return;
-  }
-
-  const data=
-  await res.json();
-
-  currentData=data;
-
-  clearGraph();
-
-  addNode(
- data.artist,
- true
-);
-
-  (data.related||[]).forEach(rel => {
-
-  if(
-    rel.latitude==null ||
-    rel.longitude==null
-  )
-  return;
-
-  const relPos = addNode(
-    rel,
-    false
-  );
-
-  const artistPos = latLonToVector3(
-    data.artist.latitude,
-    data.artist.longitude,
-    1.04
-  );
-
-  if(relPos){
-    addLine(
-    artistPos,
-    relPos
-    );
-  }
-
+  relatedList.innerHTML = "";
+  (data.related || []).forEach(rel=>{
+    const row = document.createElement("div");
+    row.className = "relatedRow";
+    const tracks = (rel.top_tracks || []).slice(0,3).map(t=>`
+      <div class="track"><img src="${t.album_image||''}" alt=""><div>${t.name}</div></div>
+    `).join("");
+    row.innerHTML = `
+      <img src="${rel.image||rel.image_url||''}" alt="">
+      <div style="flex:1">
+        <div style="font-weight:700;color:var(--paper)">${rel.name}</div>
+        <div style="font-size:12px;color:var(--dim)">${rel.rel_type||'related'}</div>
+        <div>${tracks}</div>
+      </div>
+    `;
+    row.onclick = ()=> loadArtist(rel.name);
+    relatedList.appendChild(row);
   });
-
-  renderArtistCard(
-   data.artist
-  );
-
-  renderSidePanel(
-   data
-  );
-
-  focusArtist(
-   data.artist
-  );
-
- }
- catch(err){
-
-  console.error(err);
-  alert("Something went wrong");
-
- }
- finally{
-
-  showSpinner(false);
-  globeRotating=false;
- }
-
 }
 
+/* =====================
+   CLEAR GRAPH
+   ===================== */
+function clearGraph(){
+  while(nodesGroup.children.length) nodesGroup.remove(nodesGroup.children[0]);
+  while(linesGroup.children.length) linesGroup.remove(linesGroup.children[0]);
+  while(markersGroup.children.length) markersGroup.remove(markersGroup.children[0]);
+  createdNodes.clear();
+}
 
-// PANEL BUTTON
+/* =====================
+   FOCUS CAMERA
+   ===================== */
+function focusOnLatLon(lat, lon){
+  if(lat==null || lon==null) return;
+  const target = latLonToVector3(Number(lat), Number(lon), 1.02);
+  const camTarget = target.clone().multiplyScalar(2.2);
+  const startPos = camera.position.clone();
+  const startTarget = controls.target.clone();
+  const frames = 36;
+  let i = 0;
+  function step(){
+    i++;
+    const t = i/frames;
+    camera.position.lerpVectors(startPos, camTarget, t);
+    controls.target.lerpVectors(startTarget, target, t);
+    controls.update();
+    if(i<frames) requestAnimationFrame(step);
+  }
+  step();
+}
 
-document
-.getElementById("viewRelatedBtn")
-.onclick=()=>{
+/* =====================
+   FETCH WITH TIMEOUT
+   ===================== */
+async function fetchWithTimeout(url, timeout = 8000){
+  if(activeFetchController) activeFetchController.abort();
+  activeFetchController = new AbortController();
+  const id = activeFetchController;
+  const timer = setTimeout(()=> id.abort(), timeout);
+  try{
+    const res = await fetch(url, { signal: activeFetchController.signal });
+    clearTimeout(timer);
+    activeFetchController = null;
+    return res;
+  }catch(err){
+    clearTimeout(timer);
+    activeFetchController = null;
+    throw err;
+  }
+}
 
- document
- .getElementById("sidePanel")
- .classList.toggle("open");
+/* =====================
+   LOAD ARTIST
+   ===================== */
+async function loadArtist(name){
+  if(!name) return;
+  showSpinner(true);
+  globeRotating = false;
+  try{
+    const res = await fetchWithTimeout(`${API_BASE_URL}/relations/${encodeURIComponent(name)}`, 9000);
+    if(!res.ok) { alert("Artist not found"); return; }
+    const data = await res.json();
+    currentData = data;
+    clearGraph();
+    // base node
+    if(data.artist){
+      addNode(data.artist, true);
+      createMarker(data.artist.latitude, data.artist.longitude, data.artist);
+    }
+    // related
+    (data.related || []).forEach(rel=>{
+      const lat = rel.latitude != null ? Number(rel.latitude) : null;
+      const lon = rel.longitude != null ? Number(rel.longitude) : null;
+      if(lat==null || lon==null) return;
+      const relPos = addNode(rel, false);
+      const artistPos = latLonToVector3(Number(data.artist.latitude), Number(data.artist.longitude), 1.04);
+      if(relPos && artistPos) addLine(artistPos, relPos);
+      createMarker(lat, lon, rel);
+    });
+    renderArtistCard(data.artist);
+    renderSidePanel(data);
+    focusOnLatLon(data.artist.latitude, data.artist.longitude);
+  }catch(err){
+    if(err.name === "AbortError") alert("Request timed out");
+    else alert("Something went wrong");
+    console.error(err);
+  }finally{
+    showSpinner(false);
+  }
+}
 
+/* =====================
+   UI HOOKS
+   ===================== */
+document.getElementById("viewRelatedBtn").onclick = ()=>{
+  relatedBubble.style.display = relatedBubble.style.display === "block" ? "none" : "block";
 };
 
-
-// SEARCH
-
-document
-.getElementById("searchBox")
-.addEventListener(
-"keydown",
-e=>{
-
- if(e.key==="Enter"){
-
-  loadArtist(
-   e.target.value.trim()
-  );
-
- }
-
+searchBox.addEventListener("keydown", e=>{
+  if(e.key === "Enter") loadArtist(e.target.value.trim());
 });
 
+let inputDebounce = null;
+searchBox.addEventListener("input", e=>{
+  if(inputDebounce) clearTimeout(inputDebounce);
+  if(!e.target.value.trim()){
+    artistCard.style.display = "none";
+    relatedBubble.style.display = "none";
+    return;
+  }
+  inputDebounce = setTimeout(()=>{}, 300);
+});
 
-// RECENTER
-
-document
-.getElementById("recenterBtn")
-.onclick=()=>{
-
- camera.position.set(
- 0,
- 0,
- 3
- );
-
- controls.target.set(
- 0,
- 0,
- 0
- );
-
- controls.update();
-
+recenterBtn.onclick = ()=>{
+  camera.position.set(0,0,3);
+  controls.target.set(0,0,0);
+  controls.update();
 };
 
-
-// CLICK NODES
-
-const raycaster=
-new THREE.Raycaster();
-
-const mouse=
-new THREE.Vector2();
-
-
-window.addEventListener(
-"click",
-e=>{
-
- if(
- e.target.closest("#artistCard") ||
- e.target.closest("#sidePanel") ||
- e.target.closest("#search") ||
- e.target.closest("#recenterBtn")
- )
- return;
-
-
- mouse.x=
- (e.clientX/window.innerWidth)*2-1;
-
- mouse.y=
- -(e.clientY/window.innerHeight)*2+1;
-
-
- raycaster.setFromCamera(
-  mouse,
-  camera
- );
-
-
- const hits=
- raycaster.intersectObjects(
-  nodesGroup.children
- );
-
-
- if(hits.length){
-
-  const artist=
-  hits[0].object.userData;
-
-  loadArtist(
-   artist.name
-  );
-
- }
-
+/* =====================
+   RAYCAST CLICK NODES
+   ===================== */
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+window.addEventListener("click", e=>{
+  if(e.target.closest("#artistCard") || e.target.closest("#relatedBubble") || e.target.closest("#search") || e.target.closest("#recenterBtn")) return;
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(nodesGroup.children.concat(markersGroup.children), true);
+  if(hits.length){
+    const artist = hits[0].object.userData;
+    if(artist && artist.name) loadArtist(artist.name);
+  }
 });
 
-
-// ANIMATION
-
-let globeRotating=true;
-
+/* =====================
+   ANIMATE
+   ===================== */
 function animate(){
-
- requestAnimationFrame(
-  animate
- );
-
- if(globeRotating){
-
-  earthMesh.rotation.y+=.0008;
-  countryGroup.rotation.y+=.0008;
-  nodesGroup.rotation.y+=.0008;
-  linesGroup.rotation.y+=.0008;
-
- }
-
- controls.update();
-
- renderer.render(scene,camera);
-
+  requestAnimationFrame(animate);
+  if(globeRotating){
+    earthMesh.rotation.y += 0.0008;
+    countryGroup.rotation.y += 0.0008;
+    nodesGroup.rotation.y += 0.0008;
+    markersGroup.rotation.y += 0.0008;
+    linesGroup.rotation.y += 0.0008;
+  }
+  controls.update();
+  renderer.render(scene, camera);
 }
-
 animate();
 
-// RESIZE
-
-window.addEventListener(
-"resize",
-()=>{
-
- camera.aspect=
- window.innerWidth/
- window.innerHeight;
-
- camera.updateProjectionMatrix();
-
- renderer.setSize(
-  window.innerWidth,
-  window.innerHeight
- );
-
+/* =====================
+   RESIZE
+   ===================== */
+window.addEventListener("resize", ()=>{
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
 });
-
-// END SCRIPT
-
 </script>
 </body>
 </html>
+```
