@@ -305,6 +305,7 @@ def search_spotify_artist(artist_name):
     cached = cache_read(f"spotify_search_{cache_key(artist_name)}")
     if cached:
         return cached
+    time.sleep(1)
 
     ensure_spotify_token()
 
