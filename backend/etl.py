@@ -12,6 +12,7 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 warnings.filterwarnings('ignore')
 
+
 # =====================
 # SPOTIFY AUTH
 # =====================
@@ -20,17 +21,17 @@ def get_spotify_token():
         "https://accounts.spotify.com/api/token",
         data={
             "grant_type": "client_credentials",
-            "client_id": os.getenv("SPOTIFY_CLIENT_ID"),
-            "client_secret": os.getenv("SPOTIFY_CLIENT_SECRET")
+            "client_id": config.SPOTIFY_CLIENT_ID,
+            "client_secret": config.SPOTIFY_CLIENT_SECRET
         }
     )
-    data = response.json()
-    return data.get("access_token")
+    return response.json()["access_token"]
 
-def get_spotify_headers():
-    token = get_spotify_token()
-    return {"Authorization": f"Bearer {token}"}
 
+SPOTIFY_TOKEN = get_spotify_token()
+SPOTIFY_HEADERS = {
+    "Authorization": f"Bearer {SPOTIFY_TOKEN}"
+}
 
 _memory_cache = {}
 
@@ -228,7 +229,7 @@ def get_lastfm_top_tracks(artist_name):
         sp_r = request_with_retry(
             requests.get,
             "https://api.spotify.com/v1/search",
-            headers=get_spotify_headers(),
+            headers=SPOTIFY_HEADERS,
             params={
                 "q": f"track:{track_name} artist:{artist_name}",
                 "type": "track",
@@ -274,7 +275,7 @@ def search_spotify_artist(artist_name):
     r = request_with_retry(
         requests.get,
         "https://api.spotify.com/v1/search",
-        headers=get_spotify_headers(),
+        headers=SPOTIFY_HEADERS,
         params={
             "q": f"artist:{artist_name}",
             "type": "artist",
@@ -574,6 +575,12 @@ def build_artist_relations(artist_name, limit_related=10):
     for c in final:
         import_artist(c["name"])
         print(c["name"], "[", c["listeners"], "]")
+
+        info = get_lastfm_artist_info(c["name"])
+        lat, lon = geocode_hometown(info.get("hometown", ""))
+        c["hometown"] = info.get("hometown", "")
+        c["latitude"] = lat
+        c["longitude"] = lon
 
         related.append(c)
 
