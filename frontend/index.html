@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Bungee&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#040302; /* ADJUST: darker base */
+  --bg:#040302;
   --avocado:#7a8b3a;
   --gold:#c08b2e;
   --orange:#d9642a;
@@ -32,12 +32,12 @@ body{
 }
 .blob{
   position:absolute;
-  width:45vw; height:45vw; /* ADJUST: blob size (smaller than before) */
+  width:45vw; height:45vw;
   border-radius:50%;
-  filter:blur(90px); /* ADJUST: blob softness (softer than before) */
-  opacity:0.18; /* ADJUST: blob strength (much more subtle) */
+  filter:blur(90px);
+  opacity:0.18;
 }
-.blob1{ background:var(--avocado); top:-10%; left:-10%; animation: blobMove1 26s ease-in-out infinite; } /* ADJUST: speed */
+.blob1{ background:var(--avocado); top:-10%; left:-10%; animation: blobMove1 26s ease-in-out infinite; }
 .blob2{ background:var(--gold); top:20%; right:-15%; animation: blobMove2 32s ease-in-out infinite; }
 .blob3{ background:var(--orange); bottom:-20%; left:20%; animation: blobMove3 20s ease-in-out infinite; }
 
@@ -59,11 +59,11 @@ body{
   content:"";
   position:absolute; inset:-50%; /* oversized so the rotation doesn't leave gaps */
   background-image:
-    radial-gradient(rgba(255,246,232,0.18) 1.5px, transparent 1.5px),  /* ADJUST: fine dots */
-    radial-gradient(rgba(217,100,42,0.10) 3px, transparent 3px);       /* ADJUST: big orange dots */
-  background-size: 12px 12px, 34px 34px; /* ADJUST: dot spacing per layer */
+    radial-gradient(rgba(255,246,232,0.18) 1.5px, transparent 1.5px),
+    radial-gradient(rgba(217,100,42,0.10) 3px, transparent 3px);
+  background-size: 12px 12px, 34px 34px;
   background-position: 0 0, 8px 12px;
-  transform: rotate(-12deg); /* ADJUST: print-misalignment angle */
+  transform: rotate(-12deg);
   mix-blend-mode:overlay;
 }
 
@@ -72,25 +72,27 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 /* ===== SEARCH BAR (center bottom, floating pill) ===== */
 #search{
   position:absolute; left:50%; transform:translateX(-50%);
-  bottom:70px; z-index:40; /* ADJUST: moved up from 36px */
-  display:flex; align-items:center; gap:14px;
-  padding:20px 36px; border-radius:999px; /* ADJUST: bigger padding */
-  background: linear-gradient(135deg, rgba(255,255,255,0.14), rgba(0,0,0,0.35)); /* ADJUST: glassier gradient */
-  border:5px solid var(--gold); /* ADJUST: thicker border */
-  box-shadow: 0 10px 40px var(--shadow), 0 0 40px rgba(192,139,46,0.35);
-  min-width:520px; max-width:86%; /* ADJUST: bigger overall bar */
+  bottom:70px; z-index:40;
+  display:flex; align-items:center; gap:12px;
+  padding:14px 26px; border-radius:999px;
+  background: rgba(255,246,232,0.06);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border:2px solid rgba(192,139,46,0.7);
+  box-shadow: 0 8px 30px var(--shadow), 0 0 24px rgba(192,139,46,0.2), inset 0 1px 0 rgba(255,255,255,0.12);
+  min-width:400px; max-width:86%;
 }
 #searchBox{
   background:transparent; border:none; outline:none;
-  color:var(--cream); font-size:22px; font-weight:700; width:420px; /* ADJUST: bigger text */
+  color:var(--cream); font-size:19px; font-weight:600; width:320px;
   font-family:"Outfit", sans-serif;
 }
-#searchBox::placeholder{ color:rgba(255,246,232,0.55); }
+#searchBox::placeholder{ color:rgba(255,246,232,0.5); }
 
 /* ===== MINI POPUP (anchored to a clicked node) ===== */
 #miniPanel{
   position:absolute; z-index:50; display:none;
-  width:230px; padding:14px; border-radius:16px; /* ADJUST: popup size/roundness */
+  width:230px; padding:14px; border-radius:16px;
   background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.3));
   border:2px solid var(--orange);
   box-shadow:0 14px 34px rgba(0,0,0,0.55);
@@ -128,7 +130,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   width:46px; height:46px; border-radius:50%; z-index:60; display:none;
   border:5px solid rgba(255,246,232,0.15); border-top-color:var(--orange);
-  animation:spin .8s linear infinite; /* ADJUST: spin speed */
+  animation:spin .8s linear infinite;
 }
 @keyframes spin{ to{ transform:translate(-50%,-50%) rotate(360deg) } }
 </style>
@@ -193,18 +195,37 @@ dirLight.position.set(5, 3, 5);
 scene.add(dirLight);
 
 // =====================
+// STARS
+// =====================
+const starsGeometry = new THREE.BufferGeometry();
+const starPositions = [];
+while (starPositions.length < 900 * 3) {
+  const x = (Math.random() - 0.5) * 24;
+  const y = (Math.random() - 0.5) * 24;
+  const z = (Math.random() - 0.5) * 24;
+  if (Math.sqrt(x * x + y * y + z * z) > 3) {
+    starPositions.push(x, y, z);
+  }
+}
+starsGeometry.setAttribute("position", new THREE.Float32BufferAttribute(starPositions, 3));
+scene.add(new THREE.Points(
+  starsGeometry,
+  new THREE.PointsMaterial({ color: 0xfff6e8, size: 0.03, transparent: true, opacity: 0.65 })
+));
+
+// =====================
 // EARTH (50% black core + orange wireframe on top)
 // =====================
 const earthCore = new THREE.Mesh(
   new THREE.SphereGeometry(0.995, 48, 48),
-  new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5 }) // ADJUST: core darkness
+  new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5 })
 );
 scene.add(earthCore);
 
 const earthEdges = new THREE.EdgesGeometry(new THREE.SphereGeometry(1, 32, 32));
 const earthMesh = new THREE.LineSegments(
   earthEdges,
-  new THREE.LineBasicMaterial({ color: 0xff7a2e, transparent: true, opacity: 0.35 }) // ADJUST: wireframe color/opacity
+  new THREE.LineBasicMaterial({ color: 0xff7a2e, transparent: true, opacity: 0.35 })
 );
 scene.add(earthMesh);
 
@@ -228,9 +249,11 @@ fetch("./geojson/countries.json")
   .then((r) => r.json())
   .then((json) => {
     const mat = new THREE.LineBasicMaterial({
-      color: 0xf0d9a8, // ADJUST: border line color
+      color: 0xffd58a,
       transparent: true,
-      opacity: 0.35     // ADJUST: border visibility
+      opacity: 0.6,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
     });
 
     json.features.forEach((f) => {
@@ -259,8 +282,8 @@ scene.add(nodesGroup);
 const linesGroup = new THREE.Group();
 scene.add(linesGroup);
 
-const NODE_RADIUS = 1.06; // ADJUST: how far above the surface nodes float
-const nodeGeom = new THREE.SphereGeometry(0.03, 16, 16); // ADJUST: node size
+const NODE_RADIUS = 1.06;
+const nodeGeom = new THREE.SphereGeometry(0.03, 16, 16);
 
 function clearGraph() {
   while (nodesGroup.children.length) nodesGroup.remove(nodesGroup.children[0]);
@@ -273,7 +296,7 @@ function addNode(artist, isBase) {
   if (lat == null || lon == null) return null;
 
   const mat = new THREE.MeshBasicMaterial({
-    color: isBase ? 0xfff6e8 : 0xd9642a // ADJUST: base vs related node color
+    color: isBase ? 0xfff6e8 : 0xd9642a
   });
   const mesh = new THREE.Mesh(nodeGeom, mat);
   const pos = latLonToVector3(lat, lon, NODE_RADIUS);
@@ -308,13 +331,13 @@ function addLine(posA, posB) {
       dir = dirA.clone().multiplyScalar(a).add(dirB.clone().multiplyScalar(b)).normalize();
     }
 
-    const bulge = NODE_RADIUS + Math.sin(t * Math.PI) * 0.12; // ADJUST: arc height
+    const bulge = NODE_RADIUS + Math.sin(t * Math.PI) * 0.12;
     points.push(dir.multiplyScalar(bulge));
   }
 
   const geometry = new THREE.BufferGeometry().setFromPoints(points);
   const material = new THREE.LineBasicMaterial({
-    color: 0xc08b2e, // ADJUST: line color
+    color: 0xc08b2e,
     transparent: true,
     opacity: 0.8
   });
@@ -502,7 +525,7 @@ function animate() {
 
   if (globeRotating) {
     earthCore.rotation.y += 0.0008;
-    earthMesh.rotation.y += 0.0008; // ADJUST: auto-rotation speed
+    earthMesh.rotation.y += 0.0008;
     countryGroup.rotation.y += 0.0008;
     nodesGroup.rotation.y += 0.0008;
     linesGroup.rotation.y += 0.0008;
