@@ -79,7 +79,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   border:2px solid rgba(192,139,46,0.7);
-  box-shadow: 0 8px 30px var(--shadow), 0 0 24px rgba(192,139,46,0.2), inset 0 1px 0 rgba(255,255,255,0.12);
+  box-shadow: 0 8px 30px var(--shadow), 0 0 24px rgba(192,139,46,0.6), inset 0 1px 0 rgba(255,255,255,0.12);
   min-width:400px; max-width:86%;
 }
 #searchBox{
@@ -199,7 +199,7 @@ scene.add(dirLight);
 // =====================
 const starsGeometry = new THREE.BufferGeometry();
 const starPositions = [];
-while (starPositions.length < 900 * 3) {
+while (starPositions.length < 1500 * 3) {
   const x = (Math.random() - 0.5) * 31;
   const y = (Math.random() - 0.5) * 31;
   const z = (Math.random() - 0.5) * 31;
