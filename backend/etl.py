@@ -665,10 +665,3 @@ def import_artist(artist_name):
 
     conn.commit()
     conn.close()
-
-
-# =====================
-# TEST
-# =====================
-if __name__ == "__main__":
-  import_artist("Michael Jackson")
