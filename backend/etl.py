@@ -25,13 +25,24 @@ def get_spotify_token():
             "client_secret": config.SPOTIFY_CLIENT_SECRET
         }
     )
-    return response.json()["access_token"]
+    data = response.json()
+    expires_in = data.get("expires_in", 3600)
+    return data["access_token"], time.time() + expires_in
 
 
-SPOTIFY_TOKEN = get_spotify_token()
+SPOTIFY_TOKEN, SPOTIFY_TOKEN_EXPIRY = get_spotify_token()
 SPOTIFY_HEADERS = {
     "Authorization": f"Bearer {SPOTIFY_TOKEN}"
 }
+
+
+def ensure_spotify_token():
+    global SPOTIFY_TOKEN, SPOTIFY_TOKEN_EXPIRY, SPOTIFY_HEADERS
+
+    # refresh a bit early (60s buffer) rather than waiting for it to fully expire
+    if time.time() >= SPOTIFY_TOKEN_EXPIRY - 60:
+        SPOTIFY_TOKEN, SPOTIFY_TOKEN_EXPIRY = get_spotify_token()
+        SPOTIFY_HEADERS = {"Authorization": f"Bearer {SPOTIFY_TOKEN}"}
 
 _memory_cache = {}
 
@@ -206,6 +217,8 @@ def get_lastfm_artist_info(artist_name):
 # TOP TRACKS
 # =====================
 def get_lastfm_top_tracks(artist_name):
+    ensure_spotify_token()
+
     r = request_with_retry(
         requests.get,
         "https://ws.audioscrobbler.com/2.0/",
@@ -273,6 +286,8 @@ def search_spotify_artist(artist_name):
     cached = cache_read(f"spotify_search_{cache_key(artist_name)}")
     if cached:
         return cached
+
+    ensure_spotify_token()
 
     r = request_with_retry(
         requests.get,
