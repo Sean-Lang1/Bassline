@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Bassline Globe</title>
-<link href="https://fonts.googleapis.com/css2?family=Geist Pixel:wght@400;600;700&family=Bungee&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Bungee&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#040302;
@@ -12,19 +12,20 @@
   --gold:#c08b2e;
   --orange:#d9642a;
   --cream:#fff6e8;
+  --lime:#a8e05f;
   --dim:rgba(255,246,232,0.7);
   --shadow:rgba(0,0,0,0.6);
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{
-  font-family:"Geist Pixel",system-ui,sans-serif;
+  font-family:"Outfit",system-ui,sans-serif;
   background:var(--bg);
   color:var(--cream);
   overflow:hidden;
 }
 
-/* ===== PSYCHEDELIC BACKGROUND (behind the canvas) ===== */
+/* ===== PSYCHEDELIC BACKGROUND ===== */
 #bgLayer{
   position:fixed; inset:0; z-index:0; pointer-events:none;
   background:var(--bg);
@@ -54,10 +55,9 @@ body{
   50%{ transform:translate(10vw,-12vh) scale(1.15); }
 }
 
-/* comic-style halftone: two dot layers at different scales, rotated like print misalignment */
 #bgLayer::after{
   content:"";
-  position:absolute; inset:-50%; /* oversized so the rotation doesn't leave gaps */
+  position:absolute; inset:-50%;
   background-image:
     radial-gradient(rgba(255,246,232,0.18) 1.5px, transparent 1.5px),
     radial-gradient(rgba(217,100,42,0.10) 3px, transparent 3px);
@@ -69,7 +69,7 @@ body{
 
 canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 
-/* ===== SEARCH BAR (center bottom, floating pill) ===== */
+/* ===== SEARCH BAR ===== */
 #search{
   position:absolute; left:50%; transform:translateX(-50%);
   bottom:70px; z-index:40;
@@ -79,42 +79,61 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   border:2px solid rgba(192,139,46,0.7);
-  box-shadow: 0 8px 30px var(--shadow), 0 0 24px rgba(192,139,46,0.6), inset 0 1px 0 rgba(255,255,255,0.12);
+  box-shadow: 0 8px 30px var(--shadow), 0 0 24px rgba(192,139,46,0.2), inset 0 1px 0 rgba(255,255,255,0.12);
   min-width:400px; max-width:86%;
 }
 #searchBox{
   background:transparent; border:none; outline:none;
   color:var(--cream); font-size:19px; font-weight:600; width:320px;
-  font-family:"Geist Pixel", sans-serif;
+  font-family:"Outfit", sans-serif;
 }
 #searchBox::placeholder{ color:rgba(255,246,232,0.5); }
 
-/* ===== MINI POPUP (anchored to a clicked node) ===== */
+/* ===== ARTIST POPUP (horizontal: image left, tracks right) ===== */
 #miniPanel{
   position:absolute; z-index:50; display:none;
-  width:230px; padding:14px; border-radius:16px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.3));
-  border:2px solid var(--orange);
+  width:380px; padding:14px; border-radius:16px;
+  background: rgba(20,14,8,0.55);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  border:3px solid var(--orange);
   box-shadow:0 14px 34px rgba(0,0,0,0.55);
 }
-#miniPanel img{
-  width:100%; aspect-ratio:1/1; object-fit:cover;
-  border-radius:10px; margin-bottom:8px;
+.panelBody{
+  display:flex; gap:12px; align-items:flex-start;
+}
+.panelBody img.artistImg{
+  width:120px; height:120px; object-fit:cover;
+  border-radius:12px; flex-shrink:0;
   background:linear-gradient(135deg,var(--avocado),var(--gold));
 }
-#miniPanel .miniName{ font-family:"Bungee", sans-serif; font-size:15px; color:var(--cream); }
-#miniPanel .miniRel{
+.panelInfo{ flex:1; min-width:0; }
+.miniName{ font-family:"Bungee", sans-serif; font-size:15px; color:var(--cream); }
+.miniRel{
   display:inline-block; margin:4px 0; padding:2px 10px; border-radius:999px;
   font-size:11px; font-weight:700; background:var(--gold); color:#1b1208;
 }
-#miniPanel .miniHometown{ font-size:12px; color:var(--dim); margin-bottom:8px; }
-#miniPanel .miniTracks{ font-size:12px; color:var(--dim); line-height:1.5; margin-bottom:10px; }
-#miniOpen{
-  width:100%; padding:9px; border-radius:10px; border:none;
-  background:linear-gradient(180deg,var(--gold),var(--orange));
-  color:#1b1208; font-weight:800; font-family:"Geist Pixel",sans-serif; cursor:pointer;
+.miniHometown{ font-size:12px; color:var(--dim); margin-bottom:6px; }
+.miniBio{
+  font-size:11px; color:var(--dim); margin-bottom:8px; line-height:1.4;
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
 }
-#miniOpen:hover{ filter:brightness(1.1); }
+.trackRow{
+  display:flex; align-items:center; gap:8px;
+  font-size:12px; color:var(--dim); margin-bottom:4px;
+}
+.trackRow img{
+  width:26px; height:26px; border-radius:5px; object-fit:cover; flex-shrink:0;
+  background:#2b2010;
+}
+.trackRow span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#viewRelatedBtn{
+  display:block; margin:12px auto 0 auto; padding:9px 22px; border-radius:10px; border:none;
+  background:linear-gradient(180deg,var(--gold),var(--orange));
+  color:#1b1208; font-weight:800; font-size:15px;
+  font-family:"Outfit",sans-serif; cursor:pointer;
+}
+#viewRelatedBtn:hover{ filter:brightness(1.1); }
 
 /* ===== RECENTER + SPINNER ===== */
 #recenterBtn{
@@ -133,6 +152,13 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   animation:spin .8s linear infinite;
 }
 @keyframes spin{ to{ transform:translate(-50%,-50%) rotate(360deg) } }
+
+#loadingText{
+  position:absolute; left:50%; top:calc(50% + 44px); transform:translateX(-50%);
+  z-index:60; display:none;
+  font-size:14px; font-weight:600; color:var(--dim);
+  font-family:"Outfit",sans-serif;
+}
 </style>
 </head>
 <body>
@@ -151,6 +177,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 
 <button id="recenterBtn" title="Recenter">&#8635;</button>
 <div id="spinner" aria-hidden="true"></div>
+<div id="loadingText" aria-hidden="true"></div>
 <canvas id="globe"></canvas>
 
 <script type="importmap">
@@ -199,10 +226,10 @@ scene.add(dirLight);
 // =====================
 const starsGeometry = new THREE.BufferGeometry();
 const starPositions = [];
-while (starPositions.length < 1500 * 3) {
-  const x = (Math.random() - 0.5) * 31;
-  const y = (Math.random() - 0.5) * 31;
-  const z = (Math.random() - 0.5) * 31;
+while (starPositions.length < 900 * 3) {
+  const x = (Math.random() - 0.5) * 24;
+  const y = (Math.random() - 0.5) * 24;
+  const z = (Math.random() - 0.5) * 24;
   if (Math.sqrt(x * x + y * y + z * z) > 3) {
     starPositions.push(x, y, z);
   }
@@ -210,24 +237,27 @@ while (starPositions.length < 1500 * 3) {
 starsGeometry.setAttribute("position", new THREE.Float32BufferAttribute(starPositions, 3));
 scene.add(new THREE.Points(
   starsGeometry,
-  new THREE.PointsMaterial({ color: 0xfff6e8, size: 0.05, transparent: true, opacity: 0.65 })
+  new THREE.PointsMaterial({ color: 0xfff6e8, size: 0.03, transparent: true, opacity: 0.65 })
 ));
 
 // =====================
-// 3D EARTH
+// EARTH (50% black core + orange wireframe)
 // =====================
+const globeGroup = new THREE.Group();
+scene.add(globeGroup);
+
 const earthCore = new THREE.Mesh(
   new THREE.SphereGeometry(0.995, 48, 48),
   new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.5 })
 );
-scene.add(earthCore);
+globeGroup.add(earthCore);
 
 const earthEdges = new THREE.EdgesGeometry(new THREE.SphereGeometry(1, 32, 32));
 const earthMesh = new THREE.LineSegments(
   earthEdges,
   new THREE.LineBasicMaterial({ color: 0xff7a2e, transparent: true, opacity: 0.35 })
 );
-scene.add(earthMesh);
+globeGroup.add(earthMesh);
 
 function latLonToVector3(lat, lon, radius = 1) {
   const phi = (90 - lat) * (Math.PI / 180);
@@ -240,11 +270,8 @@ function latLonToVector3(lat, lon, radius = 1) {
 }
 
 // =====================
-// COUNTRIES WIREFRAME
+// COUNTRY BORDERS
 // =====================
-const countryGroup = new THREE.Group();
-scene.add(countryGroup);
-
 fetch("./geojson/countries.json")
   .then((r) => r.json())
   .then((json) => {
@@ -266,7 +293,7 @@ fetch("./geojson/countries.json")
       polygons.forEach((poly) => {
         poly.forEach((ring) => {
           const pts = ring.map((p) => latLonToVector3(p[1], p[0], 1.005));
-          countryGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+          globeGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
         });
       });
     });
@@ -274,35 +301,56 @@ fetch("./geojson/countries.json")
   .catch((err) => console.error("Could not load countries.json", err));
 
 // =====================
-// NODES + LINES
+// NODES + LINES (accumulating graph, generation dimming)
 // =====================
 const nodesGroup = new THREE.Group();
-scene.add(nodesGroup);
+globeGroup.add(nodesGroup);
 
 const linesGroup = new THREE.Group();
-scene.add(linesGroup);
+globeGroup.add(linesGroup);
 
-const NODE_RADIUS = 1.06;
-const nodeGeom = new THREE.SphereGeometry(0.03, 16, 16);
+const NODE_RADIUS = 1.02;
+const nodeGeom = new THREE.SphereGeometry(0.022, 16, 16);
+const nodesById = new Map();
+let generation = 0;
 
 function clearGraph() {
   while (nodesGroup.children.length) nodesGroup.remove(nodesGroup.children[0]);
   while (linesGroup.children.length) linesGroup.remove(linesGroup.children[0]);
+  nodesById.clear();
+  generation = 0;
 }
 
-function addNode(artist, isBase) {
+function dimOlderGenerations() {
+  [...nodesGroup.children, ...linesGroup.children].forEach((obj) => {
+    const age = generation - obj.userData.gen;
+    if (age > 0) {
+      const dimFactor = Math.max(0.25, 1 - age * 0.3);
+      obj.material.color.lerp(new THREE.Color(0x888888), 0.35);
+      obj.userData.targetOpacity = obj.userData.baseOpacity * dimFactor;
+    }
+  });
+}
+
+function addNode(artist) {
   const lat = artist.latitude != null ? Number(artist.latitude) : null;
   const lon = artist.longitude != null ? Number(artist.longitude) : null;
   if (lat == null || lon == null) return null;
 
+  const id = artist.spotify_id || artist.id;
+  if (nodesById.has(id)) return nodesById.get(id).position.clone();
+
   const mat = new THREE.MeshBasicMaterial({
-    color: isBase ? 0xfff6e8 : 0xd9642a
+    color: 0xa8e05f,
+    transparent: true,
+    opacity: 0
   });
   const mesh = new THREE.Mesh(nodeGeom, mat);
   const pos = latLonToVector3(lat, lon, NODE_RADIUS);
   mesh.position.copy(pos);
-  mesh.userData = artist;
+  mesh.userData = { ...artist, gen: generation, baseOpacity: 0.75, targetOpacity: 0.75 };
   nodesGroup.add(mesh);
+  nodesById.set(id, mesh);
   return pos;
 }
 
@@ -339,56 +387,120 @@ function addLine(posA, posB) {
     transparent: true,
     opacity: 0.8
   });
-  linesGroup.add(new THREE.Line(geometry, material));
+  const line = new THREE.Line(geometry, material);
+  line.geometry.setDrawRange(0, 0);
+  line.userData = { gen: generation, baseOpacity: 0.8, targetOpacity: 0.8, drawProgress: 0, totalPoints: points.length };
+  linesGroup.add(line);
+}
+
+// line draw-in + opacity easing, runs every frame
+function animateGraph() {
+  linesGroup.children.forEach((line) => {
+    if (line.userData.drawProgress < line.userData.totalPoints) {
+      line.userData.drawProgress += 1.2;
+      line.geometry.setDrawRange(0, Math.floor(line.userData.drawProgress));
+    }
+  });
+
+  [...nodesGroup.children, ...linesGroup.children].forEach((obj) => {
+    const target = obj.userData.targetOpacity ?? 0.75;
+    if (Math.abs(obj.material.opacity - target) > 0.01) {
+      obj.material.opacity += (target - obj.material.opacity) * 0.08;
+    }
+  });
 }
 
 // =====================
 // UI HELPERS
 // =====================
 const spinner = document.getElementById("spinner");
+const loadingText = document.getElementById("loadingText");
 const searchBox = document.getElementById("searchBox");
 const miniPanel = document.getElementById("miniPanel");
 const recenterBtn = document.getElementById("recenterBtn");
 
 let globeRotating = true;
-let resumeTimeout = null;
+let loadingInterval = null;
+
+const LOADING_MESSAGES = [
+  "Building music map...",
+  "Finding collaborations...",
+  "Tracing hometowns...",
+  "Adding connections..."
+];
 
 function showSpinner(show) {
   spinner.style.display = show ? "block" : "none";
+  loadingText.style.display = show ? "block" : "none";
+
+  if (loadingInterval) { clearInterval(loadingInterval); loadingInterval = null; }
+
+  if (show) {
+    let idx = 0;
+    loadingText.textContent = LOADING_MESSAGES[0];
+    loadingInterval = setInterval(() => {
+      idx = (idx + 1) % LOADING_MESSAGES.length;
+      loadingText.textContent = LOADING_MESSAGES[idx];
+    }, 4000);
+  }
 }
 
-function showMiniPanelAt(screenX, screenY, artist) {
+function showArtistPanel(screenX, screenY, artist) {
   const tracks = (artist.top_tracks || [])
     .slice(0, 5)
-    .map((t) => `<div>${t.name}</div>`)
+    .map((t) => `
+      <div class="trackRow">
+        <img src="${t.album_image || ""}" alt="" />
+        <span>${t.name}</span>
+      </div>
+    `)
     .join("");
 
   miniPanel.innerHTML = `
-    <img src="${artist.image || ""}" alt="" />
-    <div class="miniName">${artist.name}</div>
-    ${artist.rel_type ? `<div class="miniRel">${artist.rel_type}</div>` : ""}
-    <div class="miniHometown">${artist.hometown || ""}</div>
-    <div class="miniTracks">${tracks}</div>
-    <button id="miniOpen">Open</button>
+    <div class="panelBody">
+      <img class="artistImg" src="${artist.image || ""}" alt="" />
+      <div class="panelInfo">
+        <div class="miniName">${artist.name}</div>
+        ${artist.rel_type ? `<div class="miniRel">${artist.rel_type}</div>` : ""}
+        <div class="miniHometown">${artist.hometown || ""}</div>
+        ${artist.summary ? `<div class="miniBio">${artist.summary}</div>` : ""}
+        ${tracks}
+      </div>
+    </div>
+    <button id="viewRelatedBtn">View Related Artists</button>
   `;
 
-  miniPanel.style.left = `${screenX}px`;
-  miniPanel.style.top = `${screenY}px`;
+  const panelW = 380;
+  const clampedX = Math.min(screenX, window.innerWidth - panelW - 20);
+  miniPanel.style.left = `${Math.max(10, clampedX)}px`;
+  miniPanel.style.top = `${Math.max(10, screenY)}px`;
   miniPanel.style.display = "block";
 
-  document.getElementById("miniOpen").addEventListener("click", () => {
-    loadArtist(artist.name);
+  globeRotating = false;
+
+  document.getElementById("viewRelatedBtn").addEventListener("click", () => {
+    loadRelations(artist.name);
   });
 }
 
+function hidePanel() {
+  miniPanel.style.display = "none";
+  globeRotating = true;
+}
+
 // =====================
-// CAMERA FOCUS 
+// CAMERA FOCUS (rotation-aware)
 // =====================
+function worldPosOf(lat, lon) {
+  const local = latLonToVector3(Number(lat), Number(lon), NODE_RADIUS);
+  return local.applyAxisAngle(new THREE.Vector3(0, 1, 0), globeGroup.rotation.y);
+}
+
 function focusOnLatLon(lat, lon) {
   if (lat == null || lon == null) return Promise.resolve();
 
-  const target = latLonToVector3(Number(lat), Number(lon), NODE_RADIUS);
-  const camTarget = target.clone().multiplyScalar(2.2);
+  const target = worldPosOf(lat, lon);
+  const camTarget = target.clone().normalize().multiplyScalar(2.2);
   const startPos = camera.position.clone();
   const startTarget = controls.target.clone();
   const frames = 36;
@@ -408,53 +520,66 @@ function focusOnLatLon(lat, lon) {
   });
 }
 
-// =====================
-// FETCH WITH TIMEOUT
-// =====================
-async function fetchWithTimeout(url) {
-  return await fetch(url);
+function screenPosOf(worldPos) {
+  const p = worldPos.clone().project(camera);
+  return {
+    x: (p.x * 0.5 + 0.5) * window.innerWidth,
+    y: (-p.y * 0.5 + 0.5) * window.innerHeight
+  };
 }
 
 // =====================
-// LOAD ARTIST
+// FETCH WITH TIMEOUT
 // =====================
-async function loadArtist(name) {
+async function fetchWithTimeout(url, timeout = 90000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+// =====================
+// SEARCH -> PROFILE ONLY (fast)
+// =====================
+async function loadProfile(name) {
   if (!name) return;
 
   showSpinner(true);
-  miniPanel.style.display = "none";
-  if (resumeTimeout) { clearTimeout(resumeTimeout); resumeTimeout = null; }
+  hidePanel();
 
   try {
-    const res = await fetchWithTimeout(`${API_BASE_URL}/relations/${encodeURIComponent(name)}`);
+    const res = await fetchWithTimeout(`${API_BASE_URL}/profile/${encodeURIComponent(name)}`, 45000);
 
     if (!res.ok) {
       alert("Artist not found.");
       return;
     }
 
-    const data = await res.json();
+    const artist = await res.json();
 
-    globeRotating = false;
     clearGraph();
+    globeRotating = false;
 
-    const basePos = addNode(data.artist, true);
-
-    data.related.forEach((rel) => {
-      const relPos = addNode(rel, false);
-      if (basePos && relPos) addLine(basePos, relPos);
-    });
-
-    await focusOnLatLon(data.artist.latitude, data.artist.longitude);
-
-    resumeTimeout = setTimeout(() => {
+    const pos = addNode(artist);
+    if (!pos) {
+      alert("No hometown found for this artist.");
       globeRotating = true;
-      resumeTimeout = null;
-    }, 3000);
+      return;
+    }
+
+    await focusOnLatLon(artist.latitude, artist.longitude);
+
+    const screen = screenPosOf(worldPosOf(artist.latitude, artist.longitude));
+    showArtistPanel(screen.x + 24, screen.y - 40, artist);
   } catch (err) {
-    if (err.name === "AbortError") {
-        alert("Bassline is still building this artist graph. Try again in a moment.");
-      }
+    globeRotating = true;
+    if (err.name === "AbortError") alert("Request timed out. Try again.");
     else alert("Something went wrong.");
     console.error(err);
   } finally {
@@ -463,10 +588,63 @@ async function loadArtist(name) {
 }
 
 // =====================
-// SEARCH
+// VIEW RELATED -> RELATIONS (heavy, on demand)
+// =====================
+async function loadRelations(name) {
+  showSpinner(true);
+  hidePanel();
+
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/relations/${encodeURIComponent(name)}`);
+
+    if (!res.ok) {
+      alert("Could not load related artists.");
+      return;
+    }
+
+    const data = await res.json();
+
+    generation += 1;
+    dimOlderGenerations();
+
+    const basePos = addNode(data.artist) ||
+      (nodesById.get(data.artist.id) && nodesById.get(data.artist.id).position.clone());
+
+    data.related.forEach((rel) => {
+      const relPos = addNode(rel);
+      if (basePos && relPos) addLine(basePos, relPos);
+    });
+
+    // zoom out a bit so the new web is visible
+    const dir = camera.position.clone().normalize();
+    const startPos = camera.position.clone();
+    const endPos = dir.multiplyScalar(3.2);
+    let i = 0;
+    const frames = 30;
+    function zoomStep() {
+      i++;
+      camera.position.lerpVectors(startPos, endPos, i / frames);
+      controls.update();
+      if (i < frames) requestAnimationFrame(zoomStep);
+    }
+    zoomStep();
+
+    globeRotating = true;
+  } catch (err) {
+    globeRotating = true;
+    if (err.name === "AbortError") alert("Request timed out. Try again.");
+    else alert("Something went wrong.");
+    console.error(err);
+  } finally {
+    showSpinner(false);
+  }
+}
+
+// =====================
+// SEARCH INPUT
 // =====================
 searchBox.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") loadArtist(e.target.value.trim());
+  if (e.key === "Enter") loadProfile(e.target.value.trim());
 });
 
 // =====================
@@ -476,11 +654,11 @@ recenterBtn.addEventListener("click", () => {
   camera.position.set(0, 0, 3);
   controls.target.set(0, 0, 0);
   controls.update();
-  globeRotating = true;
+  hidePanel();
 });
 
 // =====================
-// CLICK HANDLING 
+// CLICK HANDLING
 // =====================
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -495,16 +673,13 @@ window.addEventListener("click", (e) => {
   const hits = raycaster.intersectObjects(nodesGroup.children);
 
   if (hits.length === 0) {
-    miniPanel.style.display = "none";
+    hidePanel();
     return;
   }
 
   const artist = hits[0].object.userData;
-  const screen = hits[0].point.clone().project(camera);
-  const sx = (screen.x * 0.5 + 0.5) * window.innerWidth;
-  const sy = (-screen.y * 0.5 + 0.5) * window.innerHeight;
-
-  showMiniPanelAt(sx + 12, sy - 12, artist);
+  const screen = screenPosOf(hits[0].object.getWorldPosition(new THREE.Vector3()));
+  showArtistPanel(screen.x + 24, screen.y - 40, artist);
 });
 
 // =====================
@@ -514,13 +689,10 @@ function animate() {
   requestAnimationFrame(animate);
 
   if (globeRotating) {
-    earthCore.rotation.y += 0.0008;
-    earthMesh.rotation.y += 0.0008;
-    countryGroup.rotation.y += 0.0008;
-    nodesGroup.rotation.y += 0.0008;
-    linesGroup.rotation.y += 0.0008;
+    globeGroup.rotation.y += 0.0008;
   }
 
+  animateGraph();
   controls.update();
   renderer.render(scene, camera);
 }

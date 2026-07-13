@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from database import get_connection
-from etl import build_artist_relations
+from etl import build_artist_relations, build_artist_profile
 import os
 
 app = FastAPI()
@@ -29,7 +29,7 @@ def get_artist(name: str):
 
     try:
         cur.execute(
-            "SELECT * FROM artists WHERE name ILIKE %s",
+            "SELECT * FROM artists WHERE name = %s",
             (name,)
         )
         artist = cur.fetchone()
@@ -40,6 +40,16 @@ def get_artist(name: str):
         raise HTTPException(status_code=404, detail="Artist not found")
 
     return dict(artist)
+
+
+@app.get("/profile/{name}")
+def get_profile(name: str):
+    data = build_artist_profile(name)
+
+    if not data:
+        raise HTTPException(status_code=404, detail="Artist not found")
+
+    return data
 
 
 @app.get("/relations/{name}")
