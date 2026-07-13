@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Bassline Globe</title>
-<link href="https://fonts.googleapis.com/css2?family=Geist Pixel:wght@400;600;700&family=Bungee&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Bungee&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#040302;
@@ -18,7 +18,7 @@
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{
-  font-family:"Geist Pixel",system-ui,sans-serif;
+  font-family:"Outfit",system-ui,sans-serif;
   background:var(--bg);
   color:var(--cream);
   overflow:hidden;
@@ -79,13 +79,13 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   border:2px solid rgba(192,139,46,0.7);
-  box-shadow: 0 8px 30px var(--shadow), 0 0 24px rgba(192,139,46,0.6), inset 0 1px 0 rgba(255,255,255,0.12);
+  box-shadow: 0 8px 30px var(--shadow), 0 0 24px rgba(192,139,46,0.2), inset 0 1px 0 rgba(255,255,255,0.12);
   min-width:400px; max-width:86%;
 }
 #searchBox{
   background:transparent; border:none; outline:none;
   color:var(--cream); font-size:19px; font-weight:600; width:320px;
-  font-family:"Geist Pixel", sans-serif;
+  font-family:"Outfit", sans-serif;
 }
 #searchBox::placeholder{ color:rgba(255,246,232,0.5); }
 
@@ -112,7 +112,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 #miniOpen{
   width:100%; padding:9px; border-radius:10px; border:none;
   background:linear-gradient(180deg,var(--gold),var(--orange));
-  color:#1b1208; font-weight:800; font-family:"Geist Pixel",sans-serif; cursor:pointer;
+  color:#1b1208; font-weight:800; font-family:"Outfit",sans-serif; cursor:pointer;
 }
 #miniOpen:hover{ filter:brightness(1.1); }
 
@@ -199,10 +199,10 @@ scene.add(dirLight);
 // =====================
 const starsGeometry = new THREE.BufferGeometry();
 const starPositions = [];
-while (starPositions.length < 1500 * 3) {
-  const x = (Math.random() - 0.5) * 31;
-  const y = (Math.random() - 0.5) * 31;
-  const z = (Math.random() - 0.5) * 31;
+while (starPositions.length < 900 * 3) {
+  const x = (Math.random() - 0.5) * 24;
+  const y = (Math.random() - 0.5) * 24;
+  const z = (Math.random() - 0.5) * 24;
   if (Math.sqrt(x * x + y * y + z * z) > 3) {
     starPositions.push(x, y, z);
   }
@@ -210,11 +210,11 @@ while (starPositions.length < 1500 * 3) {
 starsGeometry.setAttribute("position", new THREE.Float32BufferAttribute(starPositions, 3));
 scene.add(new THREE.Points(
   starsGeometry,
-  new THREE.PointsMaterial({ color: 0xfff6e8, size: 0.05, transparent: true, opacity: 0.65 })
+  new THREE.PointsMaterial({ color: 0xfff6e8, size: 0.03, transparent: true, opacity: 0.65 })
 ));
 
 // =====================
-// 3D EARTH
+// EARTH (50% black core + orange wireframe on top)
 // =====================
 const earthCore = new THREE.Mesh(
   new THREE.SphereGeometry(0.995, 48, 48),
@@ -240,7 +240,7 @@ function latLonToVector3(lat, lon, radius = 1) {
 }
 
 // =====================
-// COUNTRIES WIREFRAME
+// COUNTRY BORDERS (from your countries.json)
 // =====================
 const countryGroup = new THREE.Group();
 scene.add(countryGroup);
@@ -274,7 +274,7 @@ fetch("./geojson/countries.json")
   .catch((err) => console.error("Could not load countries.json", err));
 
 // =====================
-// NODES + LINES
+// NODES + LINES (single system — one mesh per artist, no duplicate markers)
 // =====================
 const nodesGroup = new THREE.Group();
 scene.add(nodesGroup);
@@ -306,6 +306,8 @@ function addNode(artist, isBase) {
   return pos;
 }
 
+// arcs along the outside of the sphere using spherical interpolation,
+// so it can't dip through the earth no matter where the two points are
 function addLine(posA, posB) {
   if (!posA || !posB) return;
 
@@ -382,7 +384,7 @@ function showMiniPanelAt(screenX, screenY, artist) {
 }
 
 // =====================
-// CAMERA FOCUS 
+// CAMERA FOCUS (fly to a lat/lon)
 // =====================
 function focusOnLatLon(lat, lon) {
   if (lat == null || lon == null) return Promise.resolve();
@@ -411,7 +413,7 @@ function focusOnLatLon(lat, lon) {
 // =====================
 // FETCH WITH TIMEOUT
 // =====================
-async function fetchWithTimeout(url, timeout = 15000) {
+async function fetchWithTimeout(url, timeout = 90000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
@@ -444,6 +446,7 @@ async function loadArtist(name) {
 
     const data = await res.json();
 
+    // only pause rotation once we actually have an artist to show
     globeRotating = false;
     clearGraph();
 
@@ -487,7 +490,7 @@ recenterBtn.addEventListener("click", () => {
 });
 
 // =====================
-// CLICK HANDLING 
+// CLICK HANDLING (raycast onto nodes only)
 // =====================
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
