@@ -285,32 +285,72 @@ scene.add(linesGroup);
 const NODE_RADIUS = 1.06;
 const nodeGeom = new THREE.SphereGeometry(0.03, 16, 16);
 
+const nodeMap = new Map();
+const lineMap = new Map();
+const expandedArtists = new Set();
+
+let currentArtist = null;
+
 function clearGraph() {
   while (nodesGroup.children.length) nodesGroup.remove(nodesGroup.children[0]);
   while (linesGroup.children.length) linesGroup.remove(linesGroup.children[0]);
+
+  nodeMap.clear();
+  lineMap.clear();
+  expandedArtists.clear();
+  currentArtist = null;
 }
 
-function addNode(artist, isBase) {
+function addNode(artist, isBase = false) {
+  if (!artist) return null;
+
+  if (nodeMap.has(artist.spotify_id)) {
+    return nodeMap.get(artist.spotify_id);
+  }
+
   const lat = artist.latitude != null ? Number(artist.latitude) : null;
   const lon = artist.longitude != null ? Number(artist.longitude) : null;
+
   if (lat == null || lon == null) return null;
 
-  const mat = new THREE.MeshBasicMaterial({
-    color: isBase ? 0xfff6e8 : 0xd9642a
-  });
-  const mesh = new THREE.Mesh(nodeGeom, mat);
-  const pos = latLonToVector3(lat, lon, NODE_RADIUS);
-  mesh.position.copy(pos);
+  const mesh = new THREE.Mesh(
+    nodeGeom,
+    new THREE.MeshBasicMaterial({
+      color: isBase ? 0xfff6e8 : 0xd9642a,
+      transparent: true,
+      opacity: 1
+    })
+  );
+
+  mesh.position.copy(
+    latLonToVector3(lat, lon, NODE_RADIUS)
+  );
+
   mesh.userData = artist;
+
   nodesGroup.add(mesh);
-  return pos;
+
+  nodeMap.set(artist.spotify_id, mesh);
+
+  return mesh;
 }
 
-function addLine(posA, posB) {
-  if (!posA || !posB) return;
+function addLine(sourceMesh, targetMesh) {
+  if (!sourceMesh || !targetMesh) return;
+
+  const key =
+    sourceMesh.userData.spotify_id < targetMesh.userData.spotify_id
+      ? `${sourceMesh.userData.spotify_id}-${targetMesh.userData.spotify_id}`
+      : `${targetMesh.userData.spotify_id}-${sourceMesh.userData.spotify_id}`;
+
+  if (lineMap.has(key)) return;
+
+  const posA = sourceMesh.position.clone();
+  const posB = targetMesh.position.clone();
 
   const dirA = posA.clone().normalize();
   const dirB = posB.clone().normalize();
+
   let dot = Math.max(-1, Math.min(1, dirA.dot(dirB)));
   const theta = Math.acos(dot);
 
@@ -318,28 +358,61 @@ function addLine(posA, posB) {
   const points = [];
 
   for (let i = 0; i <= segments; i++) {
+
     const t = i / segments;
 
     let dir;
+
     if (theta < 1e-4) {
       dir = dirA.clone();
     } else {
+
       const a = Math.sin((1 - t) * theta) / Math.sin(theta);
       const b = Math.sin(t * theta) / Math.sin(theta);
-      dir = dirA.clone().multiplyScalar(a).add(dirB.clone().multiplyScalar(b)).normalize();
+
+      dir = dirA.clone()
+        .multiplyScalar(a)
+        .add(dirB.clone().multiplyScalar(b))
+        .normalize();
     }
 
     const bulge = NODE_RADIUS + Math.sin(t * Math.PI) * 0.12;
-    points.push(dir.multiplyScalar(bulge));
+
+    points.push(
+      dir.multiplyScalar(bulge)
+    );
   }
 
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
-  const material = new THREE.LineBasicMaterial({
-    color: 0xc08b2e,
-    transparent: true,
-    opacity: 0.8
+  const line = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(points),
+    new THREE.LineBasicMaterial({
+      color: 0xc08b2e,
+      transparent: true,
+      opacity: 0.8
+    })
+  );
+
+  linesGroup.add(line);
+
+  lineMap.set(key, line);
+}
+
+function highlightArtist(artist) {
+
+  currentArtist = artist;
+
+  nodesGroup.children.forEach((node) => {
+
+    const active =
+      node.userData.spotify_id === artist.spotify_id;
+
+    node.material.opacity = active ? 1 : 0.45;
+
   });
-  linesGroup.add(new THREE.Line(geometry, material));
+
+  linesGroup.children.forEach((line) => {
+    line.material.opacity = 0.35;
+  });
 }
 
 // =====================
@@ -358,10 +431,16 @@ function showSpinner(show) {
 }
 
 function showMiniPanelAt(screenX, screenY, artist) {
+
+  currentArtist = artist;
+
   const tracks = (artist.top_tracks || [])
     .slice(0, 5)
     .map((t) => `<div>${t.name}</div>`)
     .join("");
+
+  const alreadyExpanded =
+    expandedArtists.has(artist.spotify_id);
 
   miniPanel.innerHTML = `
     <img src="${artist.image || ""}" alt="" />
@@ -369,15 +448,43 @@ function showMiniPanelAt(screenX, screenY, artist) {
     ${artist.rel_type ? `<div class="miniRel">${artist.rel_type}</div>` : ""}
     <div class="miniHometown">${artist.hometown || ""}</div>
     <div class="miniTracks">${tracks}</div>
-    <button id="miniOpen">Open</button>
+    <button id="miniOpen">
+      ${alreadyExpanded ? "Related Artists Loaded" : "View Related Artists"}
+    </button>
   `;
 
   miniPanel.style.left = `${screenX}px`;
   miniPanel.style.top = `${screenY}px`;
   miniPanel.style.display = "block";
 
-  document.getElementById("miniOpen").addEventListener("click", () => {
-    loadArtist(artist.name);
+  const btn = document.getElementById("miniOpen");
+
+  if (alreadyExpanded) {
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+    btn.style.cursor = "default";
+    return;
+  }
+
+  btn.addEventListener("click", async () => {
+
+    btn.disabled = true;
+    btn.textContent = "Loading...";
+
+    try {
+      await expandArtist(artist.name);
+
+      btn.textContent = "Related Artists Loaded";
+      btn.style.opacity = "0.6";
+      btn.style.cursor = "default";
+
+    } catch (err) {
+
+      btn.disabled = false;
+      btn.textContent = "View Related Artists";
+
+      console.error(err);
+    }
   });
 }
 
@@ -428,14 +535,25 @@ async function fetchWithTimeout(url, timeout = 15000) {
 // LOAD ARTIST
 // =====================
 async function loadArtist(name) {
+
   if (!name) return;
 
   showSpinner(true);
+
   miniPanel.style.display = "none";
-  if (resumeTimeout) { clearTimeout(resumeTimeout); resumeTimeout = null; }
+
+  if (resumeTimeout) {
+    clearTimeout(resumeTimeout);
+    resumeTimeout = null;
+  }
 
   try {
-    const res = await fetchWithTimeout(`${API_BASE_URL}/relations/${encodeURIComponent(name)}`);
+
+    clearGraph();
+
+    const res = await fetchWithTimeout(
+      `${API_BASE_URL}/relations/${encodeURIComponent(name)}`
+    );
 
     if (!res.ok) {
       alert("Artist not found.");
@@ -445,28 +563,110 @@ async function loadArtist(name) {
     const data = await res.json();
 
     globeRotating = false;
-    clearGraph();
 
-    const basePos = addNode(data.artist, true);
+    const baseNode = addNode(data.artist, true);
 
-    data.related.forEach((rel) => {
-      const relPos = addNode(rel, false);
-      if (basePos && relPos) addLine(basePos, relPos);
-    });
+    if (!baseNode) {
+      alert("No location data found.");
+      return;
+    }
 
-    await focusOnLatLon(data.artist.latitude, data.artist.longitude);
+    currentArtist = data.artist;
+
+    await focusOnLatLon(
+      data.artist.latitude,
+      data.artist.longitude
+    );
+
+    const screen = baseNode.position.clone().project(camera);
+
+    const sx =
+      (screen.x * 0.5 + 0.5) * window.innerWidth;
+
+    const sy =
+      (-screen.y * 0.5 + 0.5) * window.innerHeight;
+
+    showMiniPanelAt(
+      sx + 12,
+      sy - 12,
+      data.artist
+    );
 
     resumeTimeout = setTimeout(() => {
+
       globeRotating = true;
       resumeTimeout = null;
+
     }, 3000);
+
   } catch (err) {
-    if (err.name === "AbortError") alert("Request timed out. Try again.");
-    else alert("Something went wrong.");
+
+    if (err.name === "AbortError") {
+      alert("Request timed out. Try again.");
+    } else {
+      alert("Something went wrong.");
+    }
+
     console.error(err);
+
   } finally {
+
     showSpinner(false);
+
   }
+
+}
+
+async function expandArtist(name) {
+
+  if (!currentArtist) return;
+
+  const currentNode = nodeMap.get(currentArtist.spotify_id);
+
+  if (!currentNode) return;
+
+  if (expandedArtists.has(currentArtist.spotify_id)) return;
+
+  showSpinner(true);
+
+  try {
+
+    const res = await fetchWithTimeout(
+      `${API_BASE_URL}/relations/${encodeURIComponent(name)}`
+    );
+
+    if (!res.ok) return;
+
+    const data = await res.json();
+
+    expandedArtists.add(data.artist.spotify_id);
+
+    data.related.forEach((artist) => {
+
+      let node = nodeMap.get(artist.spotify_id);
+
+      if (!node) {
+        node = addNode(artist);
+      }
+
+      if (node) {
+        addLine(currentNode, node);
+      }
+
+    });
+
+    highlightArtist(data.artist);
+
+  } catch (err) {
+
+    console.error(err);
+
+  } finally {
+
+    showSpinner(false);
+
+  }
+
 }
 
 // =====================
@@ -493,25 +693,46 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
 window.addEventListener("click", (e) => {
-  if (e.target.closest("#miniPanel") || e.target.closest("#search") || e.target.closest("#recenterBtn")) return;
+
+  if (
+    e.target.closest("#miniPanel") ||
+    e.target.closest("#search") ||
+    e.target.closest("#recenterBtn")
+  ) return;
 
   mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
   raycaster.setFromCamera(mouse, camera);
+
   const hits = raycaster.intersectObjects(nodesGroup.children);
 
-  if (hits.length === 0) {
+  if (!hits.length) {
     miniPanel.style.display = "none";
     return;
   }
 
-  const artist = hits[0].object.userData;
-  const screen = hits[0].point.clone().project(camera);
-  const sx = (screen.x * 0.5 + 0.5) * window.innerWidth;
-  const sy = (-screen.y * 0.5 + 0.5) * window.innerHeight;
+  const node = hits[0].object;
+  const artist = node.userData;
 
-  showMiniPanelAt(sx + 12, sy - 12, artist);
+  currentArtist = artist;
+
+  highlightArtist(artist);
+
+  const screen = node.position.clone().project(camera);
+
+  const sx =
+    (screen.x * 0.5 + 0.5) * window.innerWidth;
+
+  const sy =
+    (-screen.y * 0.5 + 0.5) * window.innerHeight;
+
+  showMiniPanelAt(
+    sx + 12,
+    sy - 12,
+    artist
+  );
+
 });
 
 // =====================
