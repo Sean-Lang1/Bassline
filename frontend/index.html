@@ -411,17 +411,8 @@ function focusOnLatLon(lat, lon) {
 // =====================
 // FETCH WITH TIMEOUT
 // =====================
-async function fetchWithTimeout(url, timeout = 60000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
-  try {
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timer);
-    return res;
-  } catch (err) {
-    clearTimeout(timer);
-    throw err;
-  }
+async function fetchWithTimeout(url) {
+  return await fetch(url);
 }
 
 // =====================
