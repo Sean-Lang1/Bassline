@@ -304,8 +304,14 @@ def get_artist_top_tracks(artist_name, artist_id=None):
             items = matching
 
     results = []
+    seen_names = set()
 
-    for t in items[:5]:
+    for t in items:
+        name_key = t["name"].lower().strip()
+        if name_key in seen_names:
+            continue
+        seen_names.add(name_key)
+
         album = t.get("album", {})
         images = album.get("images", [])
 
@@ -317,6 +323,9 @@ def get_artist_top_tracks(artist_name, artist_id=None):
             "album_image": images[0]["url"] if images else None,
             "artists": [a["name"] for a in t.get("artists", [])]
         })
+
+        if len(results) == 5:
+            break
 
     cache_write(f"top_tracks_{cache_id}", results)
     return results
@@ -441,57 +450,61 @@ def geocode_hometown(hometown):
     return lat, lon, display
 
 
-def get_musicbrainz_hometown(artist_name):
-    cached = cache_read(f"mb_hometown_{cache_key(artist_name)}")
+def get_musicbrainz_hometown(artist_name, known_mbid=None):
+    cache_id = known_mbid or cache_key(artist_name)
+    cached = cache_read(f"mb_hometown_{cache_id}")
     if cached is not None:
         return cached
 
-    throttle(1)
-
-    search = request_with_retry(
-        requests.get,
-        "https://musicbrainz.org/ws/2/artist/",
-        params={"query": artist_name, "fmt": "json", "limit": 1},
-        headers={"User-Agent": "bassline-app/1.0"}
-    )
-
     result = ""
+    mbid = known_mbid
 
-    if search is not None:
-        try:
-            artists = search.json().get("artists", [])
-        except Exception as e:
-            print(f"[error] MusicBrainz search returned bad JSON for {artist_name}: {e}")
-            artists = []
+    if mbid is None:
+        throttle(1)
 
-        if artists:
-            mbid = artists[0]["id"]
+        search = request_with_retry(
+            requests.get,
+            "https://musicbrainz.org/ws/2/artist/",
+            params={"query": artist_name, "fmt": "json", "limit": 1},
+            headers={"User-Agent": "bassline-app/1.0"}
+        )
 
-            throttle(1)
+        if search is not None:
+            try:
+                artists = search.json().get("artists", [])
+            except Exception as e:
+                print(f"[error] MusicBrainz search returned bad JSON for {artist_name}: {e}")
+                artists = []
 
-            detail = request_with_retry(
-                requests.get,
-                f"https://musicbrainz.org/ws/2/artist/{mbid}",
-                params={"fmt": "json"},
-                headers={"User-Agent": "bassline-app/1.0"}
-            )
+            if artists:
+                mbid = artists[0]["id"]
 
-            if detail is not None:
-                try:
-                    data = detail.json()
-                except Exception as e:
-                    print(f"[error] MusicBrainz artist lookup returned bad JSON for {artist_name}: {e}")
-                    data = {}
+    if mbid:
+        throttle(1)
 
-                begin_area = data.get("begin-area") or {}
-                area = data.get("area") or {}
+        detail = request_with_retry(
+            requests.get,
+            f"https://musicbrainz.org/ws/2/artist/{mbid}",
+            params={"fmt": "json"},
+            headers={"User-Agent": "bassline-app/1.0"}
+        )
 
-                if begin_area.get("name"):
-                    result = begin_area["name"]
-                elif area.get("name"):
-                    result = area["name"]
+        if detail is not None:
+            try:
+                data = detail.json()
+            except Exception as e:
+                print(f"[error] MusicBrainz artist lookup returned bad JSON for {artist_name}: {e}")
+                data = {}
 
-    cache_write(f"mb_hometown_{cache_key(artist_name)}", result)
+            begin_area = data.get("begin-area") or {}
+            area = data.get("area") or {}
+
+            if begin_area.get("name"):
+                result = begin_area["name"]
+            elif area.get("name"):
+                result = area["name"]
+
+    cache_write(f"mb_hometown_{cache_id}", result)
     return result
 
 
@@ -546,7 +559,11 @@ def get_musicbrainz_relations(artist_name):
             continue
 
         target = rel.get("artist", {})
-        results.append({"name": target.get("name", ""), "rel_type": rel_type})
+        results.append({
+            "name": target.get("name", ""),
+            "rel_type": rel_type,
+            "mbid": target.get("id")
+        })
 
     return results
 
@@ -620,7 +637,7 @@ def build_artist_relations(artist_name, limit_related=9):
     candidates = []
     seen = set()
 
-    def try_add(name, rel_type):
+    def try_add(name, rel_type, mbid=None):
         if not is_valid_artist(name, artist_name):
             return
         if name.lower() in seen:
@@ -639,11 +656,12 @@ def build_artist_relations(artist_name, limit_related=9):
             "listeners": info["listeners"],
             "summary": info["summary"],
             "image": spotify.get("image"),
-            "rel_type": rel_type
+            "rel_type": rel_type,
+            "mbid": mbid
         })
 
     for rel in mb_relations:
-        try_add(rel["name"], rel["rel_type"])
+        try_add(rel["name"], rel["rel_type"], mbid=rel.get("mbid"))
 
     for mentor, discovered in DISCOVERED_PAIRS:
         if mentor.lower() == artist_name.lower():
@@ -684,7 +702,7 @@ def build_artist_relations(artist_name, limit_related=9):
         hometown = info.get("hometown", "")
 
         if not hometown:
-            hometown = get_musicbrainz_hometown(c["name"])
+            hometown = get_musicbrainz_hometown(c["name"], known_mbid=c.get("mbid"))
 
         lat, lon, display = geocode_hometown(hometown)
 

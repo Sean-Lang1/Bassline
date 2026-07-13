@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Bassline Globe</title>
-<link href="https://fonts.googleapis.com/css2?family=Geist_Pixel:wght@400;600;700&family=Bungee&family=Geist+Pixel:ELSH@1..80&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Bungee&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#040302;
@@ -19,7 +19,7 @@
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{
-  font-family:"Geist Pixel",system-ui,sans-serif;
+  font-family:"Outfit",system-ui,sans-serif;
   background:var(--bg);
   color:var(--cream);
   overflow:hidden;
@@ -41,6 +41,30 @@ body{
 .blob1{ background:var(--avocado); top:-10%; left:-10%; animation: blobMove1 26s ease-in-out infinite; }
 .blob2{ background:var(--gold); top:20%; right:-15%; animation: blobMove2 32s ease-in-out infinite; }
 .blob3{ background:var(--orange); bottom:-20%; left:20%; animation: blobMove3 20s ease-in-out infinite; }
+
+.dot{
+  position:absolute;
+  border-radius:50%;
+  filter:blur(20px);
+  opacity:0.25;
+}
+.dot1{ width:8vw; height:8vw; background:var(--lime); top:15%; left:60%; animation: dotBounce1 7s ease-in-out infinite; }
+.dot2{ width:5vw; height:5vw; background:var(--gold); top:60%; left:15%; animation: dotBounce2 5.5s ease-in-out infinite; }
+.dot3{ width:6vw; height:6vw; background:var(--orange); top:70%; left:75%; animation: dotBounce3 6.5s ease-in-out infinite; }
+.dot4{ width:4vw; height:4vw; background:var(--avocado); top:35%; left:35%; animation: dotBounce1 8s ease-in-out infinite reverse; }
+
+@keyframes dotBounce1{
+  0%,100%{ transform:translateY(0) scale(1); }
+  50%{ transform:translateY(-6vh) scale(1.15); }
+}
+@keyframes dotBounce2{
+  0%,100%{ transform:translateY(0) scale(1); }
+  50%{ transform:translateY(5vh) scale(0.85); }
+}
+@keyframes dotBounce3{
+  0%,100%{ transform:translate(0,0) scale(1); }
+  50%{ transform:translate(-3vw,-4vh) scale(1.2); }
+}
 
 @keyframes blobMove1{
   0%,100%{ transform:translate(0,0) scale(1); }
@@ -85,8 +109,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 #searchBox{
   background:transparent; border:none; outline:none;
   color:var(--cream); font-size:19px; font-weight:600; width:320px;
-  font-family:"Geist Pixel","Outfit",sans-serif;
-  font-variation-settings:"ELSH" 1;
+  font-family:"Outfit",sans-serif;
 }
 #searchBox::placeholder{ color:rgba(255,246,232,0.5); }
 
@@ -106,12 +129,12 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   display:flex; gap:12px; align-items:flex-start;
 }
 .panelBody img.artistImg{
-  width:120px; height:120px; object-fit:cover;
+  width:150px; height:150px; object-fit:cover;
   border-radius:12px; flex-shrink:0;
   background:linear-gradient(135deg,var(--avocado),var(--gold));
 }
 .panelInfo{ flex:1; min-width:0; }
-.miniName{ font-family:"Geist Pixel","Bungee",sans-serif; font-variation-settings:"ELSH" 1; font-size:16px; color:var(--cream); }
+.miniName{ font-family:"Bungee",sans-serif; font-size:16px; color:var(--cream); }
 .miniRel{
   display:inline-block; margin:4px 0; padding:2px 10px; border-radius:999px;
   font-size:11px; font-weight:700; background:var(--gold); color:#1b1208;
@@ -137,8 +160,8 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 #viewRelatedBtn{
   display:block; margin:12px auto 0 auto; padding:9px 22px; border-radius:10px; border:none;
   background:linear-gradient(180deg,var(--gold),var(--orange));
-  color:#1b1208; font-weight:800; font-size:15px;
-  font-family:"Outfit",sans-serif; cursor:pointer;
+  color:white; font-weight:400; font-size:14px;
+  font-family:"Bungee",sans-serif; cursor:pointer;
 }
 #viewRelatedBtn:hover{ filter:brightness(1.1); }
 
@@ -162,9 +185,9 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 @keyframes fadeIn{ from{ opacity:0 } to{ opacity:1 } }
 
 #loadingText{
-  position:absolute; left:50%; top:calc(50% + 44px); transform:translateX(-50%);
+  position:absolute; left:50%; top:calc(50% + 30px); transform:translateX(-50%);
   z-index:60; display:none;
-  font-size:14px; font-weight:600; color:var(--dim);
+  font-size:17px; font-weight:700; color:var(--dim);
   font-family:"Outfit",sans-serif;
   animation:fadeIn .5s ease;
 }
@@ -176,6 +199,10 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   <div class="blob blob1"></div>
   <div class="blob blob2"></div>
   <div class="blob blob3"></div>
+  <div class="dot dot1"></div>
+  <div class="dot dot2"></div>
+  <div class="dot dot3"></div>
+  <div class="dot dot4"></div>
 </div>
 
 <div id="miniPanel" aria-hidden="true"></div>
@@ -235,7 +262,7 @@ scene.add(dirLight);
 // =====================
 const starsGeometry = new THREE.BufferGeometry();
 const starPositions = [];
-while (starPositions.length < 3300 * 3) {
+while (starPositions.length < 900 * 3) {
   const x = (Math.random() - 0.5) * 24;
   const y = (Math.random() - 0.5) * 24;
   const z = (Math.random() - 0.5) * 24;
@@ -319,7 +346,7 @@ const linesGroup = new THREE.Group();
 globeGroup.add(linesGroup);
 
 const NODE_RADIUS = 1.02;
-const nodeGeom = new THREE.SphereGeometry(0.016, 16, 16);
+const nodeGeom = new THREE.SphereGeometry(0.012, 16, 16);
 const nodesById = new Map();
 const coordCounts = new Map();
 let generation = 0;
@@ -336,12 +363,23 @@ function dimOlderGenerations() {
   [...nodesGroup.children, ...linesGroup.children].forEach((obj) => {
     const age = generation - obj.userData.gen;
     if (age > 0) {
-      const dimFactor = Math.max(0.25, 1 - age * 0.3);
-      obj.material.color.lerp(new THREE.Color(0x888888), 0.35);
+      const dimFactor = Math.max(0.15, 1 - age * 0.4);
+      obj.material.color.lerp(new THREE.Color(0x666666), 0.55);
       obj.userData.targetOpacity = obj.userData.baseOpacity * dimFactor;
     }
   });
 }
+
+const REL_COLORS = {
+  "similar": 0xf2b23a,
+  "collaboration": 0xf2b23a,
+  "married": 0x9a5cf2,
+  "discovered": 0x4a90f2,
+  "discovered by": 0x4a90f2,
+  "sibling": 0xe0453a,
+  "member of band": 0xf2b23a
+};
+const BASE_NODE_COLOR = 0xfff6e8;
 
 function addNode(artist) {
   let lat = artist.latitude != null ? Number(artist.latitude) : null;
@@ -364,7 +402,7 @@ function addNode(artist) {
   }
 
   const mat = new THREE.MeshBasicMaterial({
-    color: 0xa8e05f,
+    color: artist.rel_type ? (REL_COLORS[artist.rel_type] || BASE_NODE_COLOR) : BASE_NODE_COLOR,
     transparent: true,
     opacity: 0
   });
@@ -465,7 +503,8 @@ let loadingInterval = null;
 const LOADING_MESSAGES = [
   "Building music map...",
   "Finding collaborations...",
-  "Linking artists..."
+  "Following the sound...",
+  "Adding connections..."
 ];
 
 function showSpinner(show) {
@@ -515,8 +554,6 @@ function showArtistPanel(screenX, screenY, artist) {
   miniPanel.style.top = `${Math.max(10, screenY)}px`;
   miniPanel.style.display = "block";
 
-  globeRotating = false;
-
   document.getElementById("viewRelatedBtn").addEventListener("click", () => {
     loadRelations(artist.name);
   });
@@ -538,16 +575,21 @@ function worldPosOf(lat, lon) {
   return local.applyAxisAngle(Y_AXIS, globeGroup.rotation.y);
 }
 
+function easeInOutQuad(t) {
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+
 function flyCameraTo(direction, distance) {
   const endPos = direction.clone().normalize().multiplyScalar(distance);
   const startPos = camera.position.clone();
-  const frames = 36;
+  const frames = 40;
   let i = 0;
 
   return new Promise((resolve) => {
     function step() {
       i++;
-      camera.position.lerpVectors(startPos, endPos, i / frames);
+      const t = easeInOutQuad(i / frames);
+      camera.position.lerpVectors(startPos, endPos, t);
       controls.update();
       if (i < frames) requestAnimationFrame(step);
       else resolve();
@@ -605,12 +647,10 @@ async function loadProfile(name) {
     const artist = await res.json();
 
     clearGraph();
-    globeRotating = false;
 
     const pos = addNode(artist);
     if (!pos) {
       alert("No hometown found for this artist.");
-      globeRotating = true;
       return;
     }
 
@@ -688,7 +728,8 @@ searchBox.addEventListener("keydown", (e) => {
 // RECENTER
 // =====================
 recenterBtn.addEventListener("click", () => {
-  camera.position.set(0, 0, 3);
+  const usPos = worldPosOf(39.8283, -98.5795).normalize().multiplyScalar(3);
+  camera.position.copy(usPos);
   controls.target.set(0, 0, 0);
   controls.update();
   hidePanel();
