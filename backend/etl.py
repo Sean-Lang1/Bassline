@@ -172,42 +172,6 @@ def get_lastfm_similar(artist_name):
     return result
 
 
-NOT_A_PLACE_WORDS = {
-    "he", "she", "they", "it", "was", "is", "were", "raised", "taught",
-    "grew", "became", "would", "his", "her", "their", "now", "later",
-    "moved", "attended", "began", "started", "on"
-}
-
-def parse_hometown(bio):
-    lower_bio = bio.lower()
-    bx = lower_bio.find("born in")
-    if bx == -1:
-        return ""
-
-    after = bio[bx + len("born in"):].strip()
-
-    period_idx = after.find(".")
-    if period_idx != -1:
-        after = after[:period_idx]
-
-    parts = [p.strip() for p in after.split(",")]
-    first = parts[0]
-
-    if " of " in first.lower():
-        first = first.rsplit(" of ", 1)[-1].strip()
-
-    hometown = first
-
-    if len(parts) >= 2:
-        second = parts[1]
-        words = second.lower().split()
-        looks_like_place = len(words) <= 3 and not any(w in NOT_A_PLACE_WORDS for w in words)
-        if looks_like_place:
-            hometown += ", " + second
-
-    return hometown
-
-
 def get_lastfm_artist_info(artist_name):
     cached = cache_read(f"lastfm_info_{cache_key(artist_name)}")
     if cached:
@@ -239,7 +203,20 @@ def get_lastfm_artist_info(artist_name):
     bio = data.get("bio", {}).get("content", "") or data.get("bio", {}).get("summary", "")
 
     if bio:
-        hometown = parse_hometown(bio)
+        lower_bio = bio.lower()
+        bx = lower_bio.find("born in")
+
+        if bx != -1:
+            after = bio[bx + len("born in"):]
+
+            after = after.strip()
+
+            parts = after.split(",")
+
+            if len(parts) >= 2:
+                hometown = parts[0].strip() + ", " + parts[1].split(".")[0].strip()
+            else:
+                hometown = parts[0].split(".")[0].strip()
 
     result = {
         "listeners": listeners,
@@ -328,6 +305,7 @@ def search_spotify_artist(artist_name):
     cached = cache_read(f"spotify_search_{cache_key(artist_name)}")
     if cached:
         return cached
+    time.sleep(1)
 
     ensure_spotify_token()
 
@@ -433,60 +411,6 @@ def geocode_hometown(hometown):
 
     cache_write(f"geocode_{cache_key(hometown)}", {"lat": lat, "lon": lon})
     return lat, lon
-
-
-def get_musicbrainz_hometown(artist_name):
-    cached = cache_read(f"mb_hometown_{cache_key(artist_name)}")
-    if cached is not None:
-        return cached
-
-    throttle(1)
-
-    search = request_with_retry(
-        requests.get,
-        "https://musicbrainz.org/ws/2/artist/",
-        params={"query": artist_name, "fmt": "json", "limit": 1},
-        headers={"User-Agent": "bassline-app/1.0"}
-    )
-
-    result = ""
-
-    if search is not None:
-        try:
-            artists = search.json().get("artists", [])
-        except Exception as e:
-            print(f"[error] MusicBrainz search returned bad JSON for {artist_name}: {e}")
-            artists = []
-
-        if artists:
-            mbid = artists[0]["id"]
-
-            throttle(1)
-
-            detail = request_with_retry(
-                requests.get,
-                f"https://musicbrainz.org/ws/2/artist/{mbid}",
-                params={"fmt": "json"},
-                headers={"User-Agent": "bassline-app/1.0"}
-            )
-
-            if detail is not None:
-                try:
-                    data = detail.json()
-                except Exception as e:
-                    print(f"[error] MusicBrainz artist lookup returned bad JSON for {artist_name}: {e}")
-                    data = {}
-
-                begin_area = data.get("begin-area") or {}
-                area = data.get("area") or {}
-
-                if begin_area.get("name"):
-                    result = begin_area["name"]
-                elif area.get("name"):
-                    result = area["name"]
-
-    cache_write(f"mb_hometown_{cache_key(artist_name)}", result)
-    return result
 
 
 ALLOWED_REL_TYPES = ["sibling", "married", "member of band", "collaboration"]
@@ -629,33 +553,21 @@ def build_artist_relations(artist_name, limit_related=6):
     # sort by relationship priority first, then by popularity within each tier
     candidates.sort(key=lambda x: (rel_priority(x["rel_type"]), -x["listeners"]))
 
+    final = candidates[:limit_related]
+
     related = []
     links = []
-    i = 0
 
-    while len(related) < limit_related and i < len(candidates):
-        c = candidates[i]
-        i += 1
-
-        info = get_lastfm_artist_info(c["name"])
-        hometown = info.get("hometown", "")
-
-        if not hometown:
-            hometown = get_musicbrainz_hometown(c["name"])
-
-        lat, lon = geocode_hometown(hometown)
-
-        if lat is None or lon is None:
-            print(c["name"], "- no hometown found, skipping")
-            continue
-
+    for c in final:
+        import_artist(c["name"])
         print(c["name"], "[", c["listeners"], "]", c["rel_type"])
 
-        import_artist(c["name"], hometown=hometown, lat=lat, lon=lon)
-
-        c["hometown"] = hometown
+        info = get_lastfm_artist_info(c["name"])
+        lat, lon = geocode_hometown(info.get("hometown", ""))
+        c["hometown"] = info.get("hometown", "")
         c["latitude"] = lat
         c["longitude"] = lon
+
         c["top_tracks"] = get_lastfm_top_tracks(c["name"])
         related.append(c)
 
@@ -688,7 +600,7 @@ def build_artist_relations(artist_name, limit_related=6):
 # =====================
 # IMPORT ARTIST
 # =====================
-def import_artist(artist_name, hometown=None, lat=None, lon=None):
+def import_artist(artist_name):
     conn = get_connection()
     cur = conn.cursor()
 
@@ -698,9 +610,8 @@ def import_artist(artist_name, hometown=None, lat=None, lon=None):
 
     info = get_lastfm_artist_info(artist_name)
 
-    if hometown is None:
-        hometown = info.get("hometown", "")
-        lat, lon = geocode_hometown(hometown)
+    hometown = info.get("hometown", "")
+    lat, lon = geocode_hometown(hometown)
 
     cur.execute("""
         INSERT INTO artists
