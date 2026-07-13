@@ -619,7 +619,7 @@ def build_artist_profile(artist_name):
 # =====================
 # BUILD RELATIONS
 # =====================
-def build_artist_relations(artist_name, limit_related=9):
+def build_artist_relations(artist_name, limit_related=13):
     conn = get_connection()
     cur = conn.cursor()
 

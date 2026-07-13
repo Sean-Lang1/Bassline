@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Bassline Globe</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Bungee&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Boogaloo&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#040302;
@@ -134,7 +134,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   background:linear-gradient(135deg,var(--avocado),var(--gold));
 }
 .panelInfo{ flex:1; min-width:0; }
-.miniName{ font-family:"Bungee",sans-serif; font-size:16px; color:var(--cream); }
+.miniName{ font-family:"Boogaloo",sans-serif; font-size:16px; color:var(--cream); }
 .miniRel{
   display:inline-block; margin:4px 0; padding:2px 10px; border-radius:999px;
   font-size:11px; font-weight:700; background:var(--gold); color:#1b1208;
@@ -161,7 +161,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   display:block; margin:12px auto 0 auto; padding:9px 22px; border-radius:10px; border:none;
   background:linear-gradient(180deg,var(--gold),var(--orange));
   color:white; font-weight:400; font-size:14px;
-  font-family:"Bungee",sans-serif; cursor:pointer;
+  font-family:"Boogaloo",sans-serif; cursor:pointer;
 }
 #viewRelatedBtn:hover{ filter:brightness(1.1); }
 
@@ -262,7 +262,7 @@ scene.add(dirLight);
 // =====================
 const starsGeometry = new THREE.BufferGeometry();
 const starPositions = [];
-while (starPositions.length < 900 * 3) {
+while (starPositions.length < 3500 * 3) {
   const x = (Math.random() - 0.5) * 24;
   const y = (Math.random() - 0.5) * 24;
   const z = (Math.random() - 0.5) * 24;
@@ -361,6 +361,8 @@ function clearGraph() {
 
 function dimOlderGenerations() {
   [...nodesGroup.children, ...linesGroup.children].forEach((obj) => {
+    if (!obj.userData.rel_type) return; // base/anchor nodes never dim
+
     const age = generation - obj.userData.gen;
     if (age > 0) {
       const dimFactor = Math.max(0.15, 1 - age * 0.4);
@@ -371,15 +373,15 @@ function dimOlderGenerations() {
 }
 
 const REL_COLORS = {
-  "similar": 0xf2b23a,
-  "collaboration": 0xf2b23a,
-  "married": 0x9a5cf2,
-  "discovered": 0x4a90f2,
-  "discovered by": 0x4a90f2,
-  "sibling": 0xe0453a,
-  "member of band": 0xf2b23a
+  "similar": 0xd9932e,
+  "collaboration": 0xd9932e,
+  "member of band": 0xd9932e,
+  "married": 0x7a4a6b,
+  "discovered": 0x5c7a6a,
+  "discovered by": 0x5c7a6a,
+  "sibling": 0xb2402e
 };
-const BASE_NODE_COLOR = 0xfff6e8;
+const BASE_NODE_COLOR = 0x8fae4a;
 
 function addNode(artist) {
   let lat = artist.latitude != null ? Number(artist.latitude) : null;
@@ -415,7 +417,7 @@ function addNode(artist) {
   return pos;
 }
 
-function addLine(posA, posB) {
+function addLine(posA, posB, relType) {
   if (!posA || !posB) return;
 
   const dirA = posA.clone().normalize();
@@ -447,7 +449,7 @@ function addLine(posA, posB) {
 
   const geometry = new THREE.BufferGeometry().setFromPoints(points);
   const material = new THREE.LineBasicMaterial({
-    color: 0xc08b2e,
+    color: REL_COLORS[relType] || 0xd9932e,
     transparent: true,
     opacity: 0.8
   });
@@ -455,6 +457,7 @@ function addLine(posA, posB) {
   line.geometry.setDrawRange(0, 0);
   line.userData = {
     gen: generation, baseOpacity: 0.8, targetOpacity: 0.8,
+    rel_type: relType || "similar",
     drawProgress: 0, totalPoints: points.length,
     dirs: dirs, phase: Math.random() * Math.PI * 2
   };
@@ -523,6 +526,8 @@ function showSpinner(show) {
   }
 }
 
+let currentBaseName = "";
+
 function showArtistPanel(screenX, screenY, artist) {
   const tracks = (artist.top_tracks || [])
     .slice(0, 5)
@@ -534,12 +539,18 @@ function showArtistPanel(screenX, screenY, artist) {
     `)
     .join("");
 
+  let relLabel = "";
+  if (artist.rel_type) {
+    const against = currentBaseName && currentBaseName !== artist.name ? ` ${currentBaseName}` : "";
+    relLabel = artist.rel_type + against;
+  }
+
   miniPanel.innerHTML = `
     <div class="panelBody">
       <img class="artistImg" src="${artist.image || ""}" alt="" />
       <div class="panelInfo">
         <div class="miniName">${artist.name}</div>
-        ${artist.rel_type ? `<div class="miniRel">${artist.rel_type}</div>` : ""}
+        ${relLabel ? `<div class="miniRel">${relLabel}</div>` : ""}
         <div class="miniHometown">${artist.hometown || ""}</div>
         ${artist.summary ? `<div class="miniBio">${artist.summary}</div>` : ""}
         ${tracks}
@@ -579,7 +590,13 @@ function easeInOutQuad(t) {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 }
 
-function flyCameraTo(direction, distance) {
+function easeOutBack(t) {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
+function flyCameraTo(direction, distance, easingFn = easeInOutQuad) {
   const endPos = direction.clone().normalize().multiplyScalar(distance);
   const startPos = camera.position.clone();
   const frames = 40;
@@ -588,7 +605,7 @@ function flyCameraTo(direction, distance) {
   return new Promise((resolve) => {
     function step() {
       i++;
-      const t = easeInOutQuad(i / frames);
+      const t = easingFn(i / frames);
       camera.position.lerpVectors(startPos, endPos, t);
       controls.update();
       if (i < frames) requestAnimationFrame(step);
@@ -600,7 +617,31 @@ function flyCameraTo(direction, distance) {
 
 function focusOnLatLon(lat, lon) {
   if (lat == null || lon == null) return Promise.resolve();
-  return flyCameraTo(worldPosOf(lat, lon), 2.2);
+  return flyCameraTo(worldPosOf(lat, lon), 2.2, easeOutBack);
+}
+
+// gentle breathing zoom while waiting on a fetch, like a slow bass pulse
+let pulsing = false;
+
+function startPulse() {
+  pulsing = true;
+  const baseDir = camera.position.clone().normalize();
+  const baseDist = camera.position.length();
+  const start = performance.now();
+
+  function step() {
+    if (!pulsing) return;
+    const elapsed = (performance.now() - start) / 1000;
+    const pulse = Math.sin(elapsed * 1.6) * 0.35;
+    camera.position.copy(baseDir.clone().multiplyScalar(baseDist + pulse));
+    controls.update();
+    requestAnimationFrame(step);
+  }
+  step();
+}
+
+function stopPulse() {
+  pulsing = false;
 }
 
 function screenPosOf(worldPos) {
@@ -636,8 +677,14 @@ async function loadProfile(name) {
   showSpinner(true);
   hidePanel();
 
+  const wideDir = camera.position.clone().normalize();
+  await flyCameraTo(wideDir, 5.5);
+  startPulse();
+
   try {
     const res = await fetchWithTimeout(`${API_BASE_URL}/profile/${encodeURIComponent(name)}`, 45000);
+
+    stopPulse();
 
     if (!res.ok) {
       alert("Artist not found.");
@@ -645,6 +692,7 @@ async function loadProfile(name) {
     }
 
     const artist = await res.json();
+    currentBaseName = artist.name;
 
     clearGraph();
 
@@ -659,6 +707,7 @@ async function loadProfile(name) {
     const screen = screenPosOf(worldPosOf(artist.latitude, artist.longitude));
     showArtistPanel(screen.x + 24, screen.y - 40, artist);
   } catch (err) {
+    stopPulse();
     globeRotating = true;
     if (err.name === "AbortError") alert("Request timed out. Try again.");
     else alert("Something went wrong.");
@@ -675,8 +724,14 @@ async function loadRelations(name) {
   showSpinner(true);
   hidePanel();
 
+  const wideDir = camera.position.clone().normalize();
+  await flyCameraTo(wideDir, 5.5);
+  startPulse();
+
   try {
     const res = await fetchWithTimeout(`${API_BASE_URL}/relations/${encodeURIComponent(name)}`);
+
+    stopPulse();
 
     if (!res.ok) {
       alert("Could not load related artists.");
@@ -684,6 +739,7 @@ async function loadRelations(name) {
     }
 
     const data = await res.json();
+    currentBaseName = data.artist.name;
 
     generation += 1;
     dimOlderGenerations();
@@ -696,18 +752,19 @@ async function loadRelations(name) {
     data.related.forEach((rel) => {
       const relPos = addNode(rel);
       if (basePos && relPos) {
-        addLine(basePos, relPos);
+        addLine(basePos, relPos, rel.rel_type);
         clusterSum.add(relPos);
       }
     });
 
     // fly out toward the center of the new cluster so the whole web is visible
     if (clusterSum.lengthSq() > 0) {
-      await flyCameraTo(clusterSum.applyAxisAngle(Y_AXIS, globeGroup.rotation.y), 3.2);
+      await flyCameraTo(clusterSum.applyAxisAngle(Y_AXIS, globeGroup.rotation.y), 3.2, easeOutBack);
     }
 
     globeRotating = true;
   } catch (err) {
+    stopPulse();
     globeRotating = true;
     if (err.name === "AbortError") alert("Request timed out. Try again.");
     else alert("Something went wrong.");
