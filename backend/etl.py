@@ -436,6 +436,10 @@ def geocode_hometown(hometown):
 
 
 def get_musicbrainz_hometown(artist_name):
+    cached = cache_read(f"mb_hometown_{cache_key(artist_name)}")
+    if cached is not None:
+        return cached
+
     throttle(1)
 
     search = request_with_retry(
@@ -445,47 +449,44 @@ def get_musicbrainz_hometown(artist_name):
         headers={"User-Agent": "bassline-app/1.0"}
     )
 
-    if search is None:
-        return ""
+    result = ""
 
-    try:
-        artists = search.json().get("artists", [])
-    except Exception as e:
-        print(f"[error] MusicBrainz search returned bad JSON for {artist_name}: {e}")
-        return ""
+    if search is not None:
+        try:
+            artists = search.json().get("artists", [])
+        except Exception as e:
+            print(f"[error] MusicBrainz search returned bad JSON for {artist_name}: {e}")
+            artists = []
 
-    if not artists:
-        return ""
+        if artists:
+            mbid = artists[0]["id"]
 
-    mbid = artists[0]["id"]
+            throttle(1)
 
-    throttle(1)
+            detail = request_with_retry(
+                requests.get,
+                f"https://musicbrainz.org/ws/2/artist/{mbid}",
+                params={"fmt": "json"},
+                headers={"User-Agent": "bassline-app/1.0"}
+            )
 
-    detail = request_with_retry(
-        requests.get,
-        f"https://musicbrainz.org/ws/2/artist/{mbid}",
-        params={"fmt": "json"},
-        headers={"User-Agent": "bassline-app/1.0"}
-    )
+            if detail is not None:
+                try:
+                    data = detail.json()
+                except Exception as e:
+                    print(f"[error] MusicBrainz artist lookup returned bad JSON for {artist_name}: {e}")
+                    data = {}
 
-    if detail is None:
-        return ""
+                begin_area = data.get("begin-area") or {}
+                area = data.get("area") or {}
 
-    try:
-        data = detail.json()
-    except Exception as e:
-        print(f"[error] MusicBrainz artist lookup returned bad JSON for {artist_name}: {e}")
-        return ""
+                if begin_area.get("name"):
+                    result = begin_area["name"]
+                elif area.get("name"):
+                    result = area["name"]
 
-    begin_area = data.get("begin-area") or {}
-    if begin_area.get("name"):
-        return begin_area["name"]
-
-    area = data.get("area") or {}
-    if area.get("name"):
-        return area["name"]
-
-    return ""
+    cache_write(f"mb_hometown_{cache_key(artist_name)}", result)
+    return result
 
 
 ALLOWED_REL_TYPES = ["sibling", "married", "member of band", "collaboration"]
@@ -636,8 +637,6 @@ def build_artist_relations(artist_name, limit_related=6):
         c = candidates[i]
         i += 1
 
-        import_artist(c["name"])
-
         info = get_lastfm_artist_info(c["name"])
         hometown = info.get("hometown", "")
 
@@ -651,6 +650,8 @@ def build_artist_relations(artist_name, limit_related=6):
             continue
 
         print(c["name"], "[", c["listeners"], "]", c["rel_type"])
+
+        import_artist(c["name"], hometown=hometown, lat=lat, lon=lon)
 
         c["hometown"] = hometown
         c["latitude"] = lat
@@ -687,7 +688,7 @@ def build_artist_relations(artist_name, limit_related=6):
 # =====================
 # IMPORT ARTIST
 # =====================
-def import_artist(artist_name):
+def import_artist(artist_name, hometown=None, lat=None, lon=None):
     conn = get_connection()
     cur = conn.cursor()
 
@@ -697,8 +698,9 @@ def import_artist(artist_name):
 
     info = get_lastfm_artist_info(artist_name)
 
-    hometown = info.get("hometown", "")
-    lat, lon = geocode_hometown(hometown)
+    if hometown is None:
+        hometown = info.get("hometown", "")
+        lat, lon = geocode_hometown(hometown)
 
     cur.execute("""
         INSERT INTO artists
