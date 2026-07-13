@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Bassline Globe</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Bungee&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Bungee&family=Geist+Pixel:ELSH@1&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#040302;
@@ -93,10 +93,12 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 #miniPanel{
   position:absolute; z-index:50; display:none;
   width:380px; padding:14px; border-radius:16px;
-  background: rgba(20,14,8,0.55);
+  background:
+    linear-gradient(rgba(20,14,8,0.72), rgba(20,14,8,0.72)) padding-box,
+    linear-gradient(135deg, var(--lime), var(--gold), var(--orange)) border-box;
+  border:3px solid transparent;
   backdrop-filter: blur(14px) saturate(130%);
   -webkit-backdrop-filter: blur(14px) saturate(130%);
-  border:3px solid var(--orange);
   box-shadow:0 14px 34px rgba(0,0,0,0.55);
 }
 .panelBody{
@@ -108,15 +110,19 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   background:linear-gradient(135deg,var(--avocado),var(--gold));
 }
 .panelInfo{ flex:1; min-width:0; }
-.miniName{ font-family:"Bungee", sans-serif; font-size:15px; color:var(--cream); }
+.miniName{ font-family:"Geist Pixel","Bungee",sans-serif; font-variation-settings:"ELSH" 1; font-size:16px; color:var(--cream); }
 .miniRel{
   display:inline-block; margin:4px 0; padding:2px 10px; border-radius:999px;
   font-size:11px; font-weight:700; background:var(--gold); color:#1b1208;
 }
-.miniHometown{ font-size:12px; color:var(--dim); margin-bottom:6px; }
+.miniHometown{ font-size:12px; font-style:italic; color:var(--dim); margin-bottom:6px; }
 .miniBio{
   font-size:11px; color:var(--dim); margin-bottom:8px; line-height:1.4;
   display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+  cursor:default; transition:all 0.2s ease;
+}
+.miniBio:hover{
+  -webkit-line-clamp:unset; overflow:visible;
 }
 .trackRow{
   display:flex; align-items:center; gap:8px;
@@ -149,15 +155,17 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
   width:46px; height:46px; border-radius:50%; z-index:60; display:none;
   border:5px solid rgba(255,246,232,0.15); border-top-color:var(--orange);
-  animation:spin .8s linear infinite;
+  animation:spin .8s linear infinite, fadeIn .5s ease;
 }
 @keyframes spin{ to{ transform:translate(-50%,-50%) rotate(360deg) } }
+@keyframes fadeIn{ from{ opacity:0 } to{ opacity:1 } }
 
 #loadingText{
   position:absolute; left:50%; top:calc(50% + 44px); transform:translateX(-50%);
   z-index:60; display:none;
   font-size:14px; font-weight:600; color:var(--dim);
   font-family:"Outfit",sans-serif;
+  animation:fadeIn .5s ease;
 }
 </style>
 </head>
@@ -210,6 +218,8 @@ controls.minDistance = 1.3;
 controls.maxDistance = 8;
 controls.rotateSpeed = 0.6;
 controls.screenSpacePanning = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.35;
 controls.mouseButtons = {
   LEFT: THREE.MOUSE.PAN,
   MIDDLE: THREE.MOUSE.DOLLY,
@@ -310,14 +320,16 @@ const linesGroup = new THREE.Group();
 globeGroup.add(linesGroup);
 
 const NODE_RADIUS = 1.02;
-const nodeGeom = new THREE.SphereGeometry(0.022, 16, 16);
+const nodeGeom = new THREE.SphereGeometry(0.016, 16, 16);
 const nodesById = new Map();
+const coordCounts = new Map();
 let generation = 0;
 
 function clearGraph() {
   while (nodesGroup.children.length) nodesGroup.remove(nodesGroup.children[0]);
   while (linesGroup.children.length) linesGroup.remove(linesGroup.children[0]);
   nodesById.clear();
+  coordCounts.clear();
   generation = 0;
 }
 
@@ -333,12 +345,24 @@ function dimOlderGenerations() {
 }
 
 function addNode(artist) {
-  const lat = artist.latitude != null ? Number(artist.latitude) : null;
-  const lon = artist.longitude != null ? Number(artist.longitude) : null;
+  let lat = artist.latitude != null ? Number(artist.latitude) : null;
+  let lon = artist.longitude != null ? Number(artist.longitude) : null;
   if (lat == null || lon == null) return null;
 
   const id = artist.spotify_id || artist.id;
   if (nodesById.has(id)) return nodesById.get(id).position.clone();
+
+  // fan out nodes that share the same spot so they don't stack invisibly
+  const coordKey = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+  const collisions = coordCounts.get(coordKey) || 0;
+  coordCounts.set(coordKey, collisions + 1);
+
+  if (collisions > 0) {
+    const angle = collisions * 2.4;
+    const ring = 0.8 + 0.25 * collisions;
+    lat += ring * Math.sin(angle);
+    lon += ring * Math.cos(angle);
+  }
 
   const mat = new THREE.MeshBasicMaterial({
     color: 0xa8e05f,
@@ -348,7 +372,7 @@ function addNode(artist) {
   const mesh = new THREE.Mesh(nodeGeom, mat);
   const pos = latLonToVector3(lat, lon, NODE_RADIUS);
   mesh.position.copy(pos);
-  mesh.userData = { ...artist, gen: generation, baseOpacity: 0.75, targetOpacity: 0.75 };
+  mesh.userData = { ...artist, gen: generation, baseOpacity: 0.6, targetOpacity: 0.6 };
   nodesGroup.add(mesh);
   nodesById.set(id, mesh);
   return pos;
@@ -363,7 +387,7 @@ function addLine(posA, posB) {
   const theta = Math.acos(dot);
 
   const segments = 32;
-  const points = [];
+  const dirs = [];
 
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
@@ -376,10 +400,13 @@ function addLine(posA, posB) {
       const b = Math.sin(t * theta) / Math.sin(theta);
       dir = dirA.clone().multiplyScalar(a).add(dirB.clone().multiplyScalar(b)).normalize();
     }
-
-    const bulge = NODE_RADIUS + Math.sin(t * Math.PI) * 0.12;
-    points.push(dir.multiplyScalar(bulge));
+    dirs.push(dir);
   }
+
+  const points = dirs.map((dir, i) => {
+    const t = i / segments;
+    return dir.clone().multiplyScalar(NODE_RADIUS + Math.sin(t * Math.PI) * 0.05);
+  });
 
   const geometry = new THREE.BufferGeometry().setFromPoints(points);
   const material = new THREE.LineBasicMaterial({
@@ -389,21 +416,35 @@ function addLine(posA, posB) {
   });
   const line = new THREE.Line(geometry, material);
   line.geometry.setDrawRange(0, 0);
-  line.userData = { gen: generation, baseOpacity: 0.8, targetOpacity: 0.8, drawProgress: 0, totalPoints: points.length };
+  line.userData = {
+    gen: generation, baseOpacity: 0.8, targetOpacity: 0.8,
+    drawProgress: 0, totalPoints: points.length,
+    dirs: dirs, phase: Math.random() * Math.PI * 2
+  };
   linesGroup.add(line);
 }
 
-// line draw-in + opacity easing, runs every frame
-function animateGraph() {
+// line draw-in + opacity easing + bass-string vibration, runs every frame
+function animateGraph(time) {
   linesGroup.children.forEach((line) => {
     if (line.userData.drawProgress < line.userData.totalPoints) {
       line.userData.drawProgress += 1.2;
       line.geometry.setDrawRange(0, Math.floor(line.userData.drawProgress));
     }
+
+    const { dirs, phase } = line.userData;
+    const posAttr = line.geometry.attributes.position;
+    const wobble = Math.sin(time * 0.0018 + phase) * 0.012;
+    for (let i = 0; i < dirs.length; i++) {
+      const t = i / (dirs.length - 1);
+      const bulge = NODE_RADIUS + Math.sin(t * Math.PI) * (0.05 + wobble);
+      posAttr.setXYZ(i, dirs[i].x * bulge, dirs[i].y * bulge, dirs[i].z * bulge);
+    }
+    posAttr.needsUpdate = true;
   });
 
   [...nodesGroup.children, ...linesGroup.children].forEach((obj) => {
-    const target = obj.userData.targetOpacity ?? 0.75;
+    const target = obj.userData.targetOpacity ?? 0.6;
     if (Math.abs(obj.material.opacity - target) > 0.01) {
       obj.material.opacity += (target - obj.material.opacity) * 0.08;
     }
@@ -425,7 +466,7 @@ let loadingInterval = null;
 const LOADING_MESSAGES = [
   "Building music map...",
   "Finding collaborations...",
-  "Tracing hometowns...",
+  "Following the sound...",
   "Adding connections..."
 ];
 
@@ -489,35 +530,33 @@ function hidePanel() {
 }
 
 // =====================
-// CAMERA FOCUS (rotation-aware)
+// CAMERA FOCUS (earth stays idle; camera orbits and flies)
 // =====================
 function worldPosOf(lat, lon) {
-  const local = latLonToVector3(Number(lat), Number(lon), NODE_RADIUS);
-  return local.applyAxisAngle(new THREE.Vector3(0, 1, 0), globeGroup.rotation.y);
+  return latLonToVector3(Number(lat), Number(lon), NODE_RADIUS);
 }
 
-function focusOnLatLon(lat, lon) {
-  if (lat == null || lon == null) return Promise.resolve();
-
-  const target = worldPosOf(lat, lon);
-  const camTarget = target.clone().normalize().multiplyScalar(2.2);
+function flyCameraTo(direction, distance) {
+  const endPos = direction.clone().normalize().multiplyScalar(distance);
   const startPos = camera.position.clone();
-  const startTarget = controls.target.clone();
   const frames = 36;
   let i = 0;
 
   return new Promise((resolve) => {
     function step() {
       i++;
-      const t = i / frames;
-      camera.position.lerpVectors(startPos, camTarget, t);
-      controls.target.lerpVectors(startTarget, target, t);
+      camera.position.lerpVectors(startPos, endPos, i / frames);
       controls.update();
       if (i < frames) requestAnimationFrame(step);
       else resolve();
     }
     step();
   });
+}
+
+function focusOnLatLon(lat, lon) {
+  if (lat == null || lon == null) return Promise.resolve();
+  return flyCameraTo(worldPosOf(lat, lon), 2.2);
 }
 
 function screenPosOf(worldPos) {
@@ -610,24 +649,20 @@ async function loadRelations(name) {
     const basePos = addNode(data.artist) ||
       (nodesById.get(data.artist.id) && nodesById.get(data.artist.id).position.clone());
 
+    const clusterSum = basePos ? basePos.clone() : new THREE.Vector3();
+
     data.related.forEach((rel) => {
       const relPos = addNode(rel);
-      if (basePos && relPos) addLine(basePos, relPos);
+      if (basePos && relPos) {
+        addLine(basePos, relPos);
+        clusterSum.add(relPos);
+      }
     });
 
-    // zoom out a bit so the new web is visible
-    const dir = camera.position.clone().normalize();
-    const startPos = camera.position.clone();
-    const endPos = dir.multiplyScalar(3.2);
-    let i = 0;
-    const frames = 30;
-    function zoomStep() {
-      i++;
-      camera.position.lerpVectors(startPos, endPos, i / frames);
-      controls.update();
-      if (i < frames) requestAnimationFrame(zoomStep);
+    // fly out toward the center of the new cluster so the whole web is visible
+    if (clusterSum.lengthSq() > 0) {
+      await flyCameraTo(clusterSum, 3.2);
     }
-    zoomStep();
 
     globeRotating = true;
   } catch (err) {
@@ -685,18 +720,16 @@ window.addEventListener("click", (e) => {
 // =====================
 // ANIMATION LOOP
 // =====================
-function animate() {
+function animate(time) {
   requestAnimationFrame(animate);
 
-  if (globeRotating) {
-    globeGroup.rotation.y += 0.0008;
-  }
+  controls.autoRotate = globeRotating;
 
-  animateGraph();
+  animateGraph(time || 0);
   controls.update();
   renderer.render(scene, camera);
 }
-animate();
+animate(0);
 
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;

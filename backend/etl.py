@@ -234,11 +234,15 @@ def get_lastfm_artist_info(artist_name):
     if summary:
         summary = summary.split("<a")[0].strip()
 
+    AMBIGUOUS_MARKERS = ["more than one artist", "at least two artists", "at least 2 artists"]
+    if any(m in summary.lower() for m in AMBIGUOUS_MARKERS):
+        summary = ""
+
     hometown = ""
 
     bio = data.get("bio", {}).get("content", "") or data.get("bio", {}).get("summary", "")
 
-    if bio:
+    if bio and not any(m in bio.lower() for m in AMBIGUOUS_MARKERS):
         hometown = parse_hometown(bio)
 
     result = {
@@ -395,11 +399,11 @@ def throttle(seconds):
 
 def geocode_hometown(hometown):
     if not hometown:
-        return None, None
+        return None, None, ""
 
     cached = cache_read(f"geocode_{cache_key(hometown)}")
     if cached:
-        return cached.get("lat"), cached.get("lon")
+        return cached.get("lat"), cached.get("lon"), cached.get("display", hometown)
 
     throttle(1)
 
@@ -409,30 +413,36 @@ def geocode_hometown(hometown):
         params={
             "q": hometown,
             "format": "json",
-            "limit": 1
+            "limit": 1,
+            "addressdetails": 1
         },
         headers={"User-Agent": "bassline-app/1.0"}
     )
 
     if r is None:
         print(f"[error] geocoding failed for '{hometown}', skipping")
-        return None, None
+        return None, None, hometown
 
     try:
         results = r.json()
     except Exception as e:
         print(f"[error] geocoding returned bad JSON for '{hometown}': {e}")
-        return None, None
+        return None, None, hometown
 
     if not results:
-        cache_write(f"geocode_{cache_key(hometown)}", {"lat": None, "lon": None})
-        return None, None
+        cache_write(f"geocode_{cache_key(hometown)}", {"lat": None, "lon": None, "display": hometown})
+        return None, None, hometown
 
     lat = float(results[0]["lat"])
     lon = float(results[0]["lon"])
 
-    cache_write(f"geocode_{cache_key(hometown)}", {"lat": lat, "lon": lon})
-    return lat, lon
+    address = results[0].get("address", {})
+    city = address.get("city") or address.get("town") or address.get("village") or hometown.split(",")[0].strip()
+    region = address.get("state") or address.get("country") or ""
+    display = f"{city}, {region}" if region else city
+
+    cache_write(f"geocode_{cache_key(hometown)}", {"lat": lat, "lon": lon, "display": display})
+    return lat, lon, display
 
 
 def get_musicbrainz_hometown(artist_name):
@@ -574,9 +584,9 @@ def build_artist_profile(artist_name):
     hometown = info.get("hometown", "")
     if not hometown:
         hometown = get_musicbrainz_hometown(artist_name)
-    lat, lon = geocode_hometown(hometown)
+    lat, lon, display = geocode_hometown(hometown)
 
-    base["hometown"] = hometown
+    base["hometown"] = display or hometown
     base["latitude"] = lat
     base["longitude"] = lon
     base["listeners"] = info["listeners"]
@@ -596,7 +606,7 @@ def build_artist_profile(artist_name):
 # =====================
 # BUILD RELATIONS
 # =====================
-def build_artist_relations(artist_name, limit_related=6):
+def build_artist_relations(artist_name, limit_related=9):
     conn = get_connection()
     cur = conn.cursor()
 
@@ -656,6 +666,16 @@ def build_artist_relations(artist_name, limit_related=6):
     # sort by relationship priority first, then by popularity within each tier
     candidates.sort(key=lambda x: (rel_priority(x["rel_type"]), -x["listeners"]))
 
+    capped = []
+    family_count = 0
+    for c in candidates:
+        if c["rel_type"] in ("sibling", "married"):
+            if family_count >= 3:
+                continue
+            family_count += 1
+        capped.append(c)
+    candidates = capped
+
     related = []
     links = []
     i = 0
@@ -670,7 +690,7 @@ def build_artist_relations(artist_name, limit_related=6):
         if not hometown:
             hometown = get_musicbrainz_hometown(c["name"])
 
-        lat, lon = geocode_hometown(hometown)
+        lat, lon, display = geocode_hometown(hometown)
 
         if lat is None or lon is None:
             print(c["name"], "- no hometown found, skipping")
@@ -678,9 +698,9 @@ def build_artist_relations(artist_name, limit_related=6):
 
         print(c["name"], "[", c["listeners"], "]", c["rel_type"])
 
-        import_artist(c["name"], hometown=hometown, lat=lat, lon=lon)
+        import_artist(c["name"], hometown=display or hometown, lat=lat, lon=lon)
 
-        c["hometown"] = hometown
+        c["hometown"] = display or hometown
         c["latitude"] = lat
         c["longitude"] = lon
         c["top_tracks"] = get_lastfm_top_tracks(c["name"])
@@ -727,7 +747,8 @@ def import_artist(artist_name, hometown=None, lat=None, lon=None):
 
     if hometown is None:
         hometown = info.get("hometown", "")
-        lat, lon = geocode_hometown(hometown)
+        lat, lon, display = geocode_hometown(hometown)
+        hometown = display or hometown
 
     cur.execute("""
         INSERT INTO artists
