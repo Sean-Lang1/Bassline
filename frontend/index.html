@@ -235,7 +235,7 @@ scene.add(dirLight);
 // =====================
 const starsGeometry = new THREE.BufferGeometry();
 const starPositions = [];
-while (starPositions.length < 900 * 3) {
+while (starPositions.length < 3300 * 3) {
   const x = (Math.random() - 0.5) * 24;
   const y = (Math.random() - 0.5) * 24;
   const z = (Math.random() - 0.5) * 24;
@@ -465,8 +465,7 @@ let loadingInterval = null;
 const LOADING_MESSAGES = [
   "Building music map...",
   "Finding collaborations...",
-  "Following the sound...",
-  "Adding connections..."
+  "Linking artists..."
 ];
 
 function showSpinner(show) {
