@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Bassline Globe</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Bungee&family=Geist+Pixel:ELSH@1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Bungee&family=Geist+Pixel:ELSH@1..80&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#040302;
@@ -85,7 +85,8 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 #searchBox{
   background:transparent; border:none; outline:none;
   color:var(--cream); font-size:19px; font-weight:600; width:320px;
-  font-family:"Outfit", sans-serif;
+  font-family:"Geist Pixel","Outfit",sans-serif;
+  font-variation-settings:"ELSH" 1;
 }
 #searchBox::placeholder{ color:rgba(255,246,232,0.5); }
 
@@ -218,8 +219,6 @@ controls.minDistance = 1.3;
 controls.maxDistance = 8;
 controls.rotateSpeed = 0.6;
 controls.screenSpacePanning = true;
-controls.autoRotate = true;
-controls.autoRotateSpeed = 0.35;
 controls.mouseButtons = {
   LEFT: THREE.MOUSE.PAN,
   MIDDLE: THREE.MOUSE.DOLLY,
@@ -530,10 +529,14 @@ function hidePanel() {
 }
 
 // =====================
-// CAMERA FOCUS (earth stays idle; camera orbits and flies)
+// CAMERA FOCUS (globe rotates; camera locks to it when nodes exist)
 // =====================
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
+const ROT_SPEED = 0.0008;
+
 function worldPosOf(lat, lon) {
-  return latLonToVector3(Number(lat), Number(lon), NODE_RADIUS);
+  const local = latLonToVector3(Number(lat), Number(lon), NODE_RADIUS);
+  return local.applyAxisAngle(Y_AXIS, globeGroup.rotation.y);
 }
 
 function flyCameraTo(direction, distance) {
@@ -661,7 +664,7 @@ async function loadRelations(name) {
 
     // fly out toward the center of the new cluster so the whole web is visible
     if (clusterSum.lengthSq() > 0) {
-      await flyCameraTo(clusterSum, 3.2);
+      await flyCameraTo(clusterSum.applyAxisAngle(Y_AXIS, globeGroup.rotation.y), 3.2);
     }
 
     globeRotating = true;
@@ -723,7 +726,15 @@ window.addEventListener("click", (e) => {
 function animate(time) {
   requestAnimationFrame(animate);
 
-  controls.autoRotate = globeRotating;
+  if (globeRotating) {
+    globeGroup.rotation.y += ROT_SPEED;
+
+    // once a graph exists, the camera turns with the globe
+    // so the focused node stays centered instead of drifting away
+    if (nodesGroup.children.length > 0) {
+      camera.position.applyAxisAngle(Y_AXIS, ROT_SPEED);
+    }
+  }
 
   animateGraph(time || 0);
   controls.update();

@@ -257,8 +257,9 @@ def get_lastfm_artist_info(artist_name):
 # =====================
 # TOP TRACKS
 # =====================
-def get_lastfm_top_tracks(artist_name):
-    cached = cache_read(f"top_tracks_{cache_key(artist_name)}")
+def get_artist_top_tracks(artist_name, artist_id=None):
+    cache_id = artist_id or cache_key(artist_name)
+    cached = cache_read(f"top_tracks_{cache_id}")
     if cached:
         return cached
 
@@ -266,63 +267,58 @@ def get_lastfm_top_tracks(artist_name):
 
     r = request_with_retry(
         requests.get,
-        "https://ws.audioscrobbler.com/2.0/",
+        "https://api.spotify.com/v1/search",
+        headers=SPOTIFY_HEADERS,
         params={
-            "method": "artist.getTopTracks",
-            "artist": artist_name,
-            "api_key": config.LASTFM_API_KEY,
-            "format": "json",
-            "limit": 5
+            "q": f'artist:"{artist_name}"',
+            "type": "track",
+            "limit": 10
         }
     )
 
-    if r is None:
-        return []
-
-    data = r.json().get("toptracks", {}).get("track", [])
-
-    results = []
-
-    for t in data:
-        track_name = t["name"]
-
-        sp_r = request_with_retry(
+    if r is not None and r.status_code == 401:
+        refresh_spotify_token()
+        r = request_with_retry(
             requests.get,
             "https://api.spotify.com/v1/search",
             headers=SPOTIFY_HEADERS,
             params={
-                "q": f"track:{track_name} artist:{artist_name}",
+                "q": f'artist:"{artist_name}"',
                 "type": "track",
-                "limit": 1
+                "limit": 10
             }
         )
 
-        items = sp_r.json().get("tracks", {}).get("items", []) if sp_r is not None else []
+    if r is None:
+        return []
 
-        if items:
-            s = items[0]
-            album = s.get("album", {})
-            images = album.get("images", [])
+    try:
+        items = r.json().get("tracks", {}).get("items", [])
+    except Exception as e:
+        print(f"[error] Spotify track search returned bad JSON for {artist_name}: {e}")
+        return []
 
-            results.append({
-                "name": track_name,
-                "spotify_id": s["id"],
-                "album_name": album.get("name"),
-                "release_date": album.get("release_date"),
-                "album_image": images[0]["url"] if images else None,
-                "artists": [a["name"] for a in s.get("artists", [])]
-            })
-        else:
-            results.append({
-                "name": track_name,
-                "spotify_id": None,
-                "album_name": None,
-                "release_date": None,
-                "album_image": None,
-                "artists": []
-            })
+    if artist_id:
+        matching = [t for t in items if any(a.get("id") == artist_id for a in t.get("artists", []))]
+        if matching:
+            items = matching
 
-    cache_write(f"top_tracks_{cache_key(artist_name)}", results)
+    results = []
+
+    for t in items[:5]:
+        album = t.get("album", {})
+        images = album.get("images", [])
+
+        results.append({
+            "name": t["name"],
+            "spotify_id": t["id"],
+            "album_name": album.get("name"),
+            "release_date": album.get("release_date"),
+            "album_image": images[0]["url"] if images else None,
+            "artists": [a["name"] for a in t.get("artists", [])]
+        })
+
+    cache_write(f"top_tracks_{cache_id}", results)
     return results
 
 # =====================
@@ -591,7 +587,7 @@ def build_artist_profile(artist_name):
     base["longitude"] = lon
     base["listeners"] = info["listeners"]
     base["summary"] = info["summary"]
-    base["top_tracks"] = get_lastfm_top_tracks(artist_name)
+    base["top_tracks"] = get_artist_top_tracks(artist_name, base["id"])
 
     conn = get_connection()
     cur = conn.cursor()
@@ -703,7 +699,7 @@ def build_artist_relations(artist_name, limit_related=9):
         c["hometown"] = display or hometown
         c["latitude"] = lat
         c["longitude"] = lon
-        c["top_tracks"] = get_lastfm_top_tracks(c["name"])
+        c["top_tracks"] = get_artist_top_tracks(c["name"], c["spotify_id"])
         related.append(c)
 
         links.append({
@@ -766,7 +762,7 @@ def import_artist(artist_name, hometown=None, lat=None, lon=None):
         lon
     ))
 
-    top_tracks = get_lastfm_top_tracks(artist_name)
+    top_tracks = get_artist_top_tracks(artist_name, spotify["id"])
     for t in top_tracks:
         if not t.get("spotify_id"):
             continue
