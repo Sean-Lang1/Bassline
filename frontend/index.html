@@ -411,7 +411,7 @@ function focusOnLatLon(lat, lon) {
 // =====================
 // FETCH WITH TIMEOUT
 // =====================
-async function fetchWithTimeout(url, timeout = 15000) {
+async function fetchWithTimeout(url, timeout = 60000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
@@ -461,7 +461,9 @@ async function loadArtist(name) {
       resumeTimeout = null;
     }, 3000);
   } catch (err) {
-    if (err.name === "AbortError") alert("Request timed out. Try again.");
+    if (err.name === "AbortError") {
+        alert("Bassline is still building this artist graph. Try again in a moment.");
+      }
     else alert("Something went wrong.");
     console.error(err);
   } finally {
