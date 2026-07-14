@@ -331,9 +331,40 @@ def get_artist_top_tracks(artist_name, artist_id=None):
     return results
 
 # =====================
+# DB CACHE HELPER
+# =====================
+def get_artist_from_db(artist_name):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT spotify_id, name, image_url
+        FROM artists
+        WHERE LOWER(name) = LOWER(%s)
+        LIMIT 1
+    """, (artist_name,))
+
+    row = cur.fetchone()
+
+    conn.close()
+
+    if not row:
+        return None
+
+    return {
+        "id": row[0],
+        "name": row[1],
+        "image": row[2]
+    }
+
+# =====================
 # SPOTIFY SEARCH
 # =====================
 def search_spotify_artist(artist_name):
+    db_artist = get_artist_from_db(artist_name)
+    if db_artist:
+        return db_artist
+
     cached = cache_read(f"spotify_search_{cache_key(artist_name)}")
     if cached:
         return cached
