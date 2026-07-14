@@ -166,11 +166,16 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 .trackRow img{
   width:26px; height:26px; border-radius:5px; object-fit:cover; flex-shrink:0;
   background:#2b2010;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.trackRow img:hover {
+  transform: scale(1.08);
 }
 .trackRow span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #viewRelatedBtn{
   display:block; margin:12px auto 0 auto; padding:9px 22px; border-radius:10px; border:none;
-  background:linear-gradient(180deg,var(--gold),var(--orange));
+  background:linear-gradient(180deg,var(--gold),var(--cream));
   color:white; font-weight:400; font-size:14px;
   font-family:"Bungee",sans-serif; cursor:pointer;
   text-shadow:0 2px 4px rgba(0,0,0,0.45);
@@ -548,7 +553,9 @@ function showArtistPanel(screenX, screenY, artist) {
     .slice(0, 5)
     .map((t) => `
       <div class="trackRow">
+        <a href="https://open.spotify.com/track/${t.spotify_id}" target="_blank" rel="noopener noreferrer">
         <img src="${t.album_image || ""}" alt="" />
+      </a>
         <span>${t.name}</span>
       </div>
     `)
@@ -561,6 +568,9 @@ function showArtistPanel(screenX, screenY, artist) {
         <div class="miniName">${artist.name}</div>
         ${artist.rel_type ? `<div class="miniRel" id="relTag">${artist.rel_type}</div>` : ""}
         <div class="miniHometown">${artist.hometown || ""}</div>
+        <div class="miniListeners">
+        ${artist.listeners.toLocaleString()} listeners
+        </div>
         ${artist.summary ? `<div class="miniBio">${artist.summary}</div>` : ""}
         ${tracks ? `<div class="tracksHeading">Popular Tracks</div>` : ""}
         ${tracks}
@@ -722,7 +732,7 @@ async function loadProfile(name) {
 
     const pos = addNode(artist);
     if (!pos) {
-      alert("No hometown found for this artist.");
+      alert("Who??");
       return;
     }
 
