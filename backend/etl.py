@@ -63,8 +63,9 @@ def request_with_retry(method, url, max_attempts=3, **kwargs):
             response = method(url, timeout=10, **kwargs)
 
             if response.status_code == 429:
-                print("Rate limited. Waiting...")
-                time.sleep(5)
+                wait = min(int(response.headers.get("Retry-After", 5)), 20)
+                print(f"Rate limited. Waiting {wait}s...")
+                time.sleep(wait)
                 continue
 
             if response.status_code >= 500:
@@ -351,7 +352,7 @@ def search_spotify_artist(artist_name):
             params={
                 "q": f"artist:{artist_name}",
                 "type": "artist",
-                "limit": 1
+                "limit": 3
             }
         )
 
@@ -449,7 +450,7 @@ def get_musicbrainz_hometown(artist_name, known_mbid=None):
 
     if mbid is None:
         time.sleep(1)
-         
+
         search = request_with_retry(
             requests.get,
             "https://musicbrainz.org/ws/2/artist/",
@@ -510,9 +511,9 @@ ALLOWED_REL_TYPES = [
     "child",
     "parent",
     "artist",
-    "producer"
+    "producer",
     "similar"
-    ]
+]
 
 def get_musicbrainz_relations(artist_name):
     time.sleep(1)
@@ -548,7 +549,7 @@ def get_musicbrainz_relations(artist_name):
             break
 
     if not mbid:
-        return []
+        mbid = artists[0]["id"]
 
     time.sleep(1)
 
@@ -588,7 +589,7 @@ def get_musicbrainz_relations(artist_name):
     return results
 
 # =====================
-# RELATIONSHIP PRIORITY 
+# RELATIONSHIP PRIORITY
 # =====================
 REL_PRIORITY = {
     "married": 1,
@@ -604,7 +605,7 @@ def rel_priority(rel_type):
     return REL_PRIORITY.get(rel_type, 99)
 
 # =====================
-# BUILD ARTIST PROFILE 
+# BUILD ARTIST PROFILE
 # =====================
 def build_artist_profile(artist_name):
     base = search_spotify_artist(artist_name)
@@ -613,9 +614,9 @@ def build_artist_profile(artist_name):
 
     info = get_lastfm_artist_info(artist_name)
 
-    hometown = get_musicbrainz_hometown(artist_name)
+    hometown = info.get("hometown", "")
     if not hometown:
-        hometown = info.get("hometown", "")
+        hometown = get_musicbrainz_hometown(artist_name)
 
     lat, lon, display = geocode_hometown(hometown)
 
@@ -671,7 +672,7 @@ def build_artist_relations(artist_name, limit_related=8):
 
     similar = get_lastfm_similar(artist_name)
     mb_relations = get_musicbrainz_relations(artist_name)
-    
+
     candidates = []
     seen = set()
 
@@ -700,7 +701,7 @@ def build_artist_relations(artist_name, limit_related=8):
             "rel_type": rel_type,
             "mbid": mbid
         })
-    
+
     for rel in mb_relations:
         try_add(rel["name"], rel["rel_type"], mbid=rel.get("mbid"))
 
@@ -720,7 +721,7 @@ def build_artist_relations(artist_name, limit_related=8):
         else:
             try_add(name, "similar")
 
-    # sort by priority first, then by popularity 
+    # sort by priority first, then by popularity
     candidates.sort(key=lambda x: (rel_priority(x["rel_type"]), -x["listeners"]))
 
     capped = []
@@ -750,21 +751,14 @@ def build_artist_relations(artist_name, limit_related=8):
         lat, lon, display = geocode_hometown(hometown)
 
         if lat is None or lon is None:
-            if c["rel_type"] in (
-                "producer",
-                "collaboration",
-                "discovered",
-                "discovered by"
-            ):
-                lat = 0
-                lon = 0
-                display = "Unknown"
-
-            else:
-                print(c["name"], "- no hometown found, skipping")
-                continue
+            print(c["name"], "- no hometown found, skipping")
+            continue
 
         print(c["name"], "[", c["listeners"], "]", c["rel_type"])
+
+        c["hometown"] = display or hometown
+        c["latitude"] = lat
+        c["longitude"] = lon
 
         import_artist(
             c["name"],
@@ -786,7 +780,7 @@ def build_artist_relations(artist_name, limit_related=8):
             )
         else:
             c["top_tracks"] = []
-                
+
         related.append(c)
 
         links.append({
@@ -823,11 +817,11 @@ def import_artist(artist_name, hometown=None, lat=None, lon=None, spotify=None, 
     cur = conn.cursor()
 
     if spotify is None:
-       spotify = search_spotify_artist(artist_name)
+        spotify = search_spotify_artist(artist_name)
 
     if not spotify:
-            conn.close()
-            return None
+        conn.close()
+        return None
 
     info = get_lastfm_artist_info(artist_name)
 
