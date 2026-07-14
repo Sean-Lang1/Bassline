@@ -48,10 +48,34 @@ def cache_write(cache_name, data):
     _memory_cache[cache_name] = data
 
 # =====================
-# SAFE CACHE KEY
+# CACHE CHECKS
 # =====================
 def cache_key(name):
     return name.replace(" ", "_").replace("/", "_").replace(",", "_")
+
+def get_artist_from_db(artist_name):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT spotify_id, name, image_url
+        FROM artists
+        WHERE LOWER(name) = LOWER(%s)
+        LIMIT 1
+    """, (artist_name,))
+
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        return None
+
+    return {
+        "id": row[0],
+        "name": row[1],
+        "image": row[2],
+        "images": []
+    }
 
 # =====================
 # RETRY HELPER
@@ -343,6 +367,11 @@ def search_spotify_artist(artist_name):
     cached = cache_read(f"spotify_search_{cache_key(artist_name)}")
     if cached:
         return cached
+    
+    db_artist = get_artist_from_db(artist_name)
+    if db_artist:
+        cache_write(f"spotify_search_{cache_key(artist_name)}", db_artist)
+        return db_artist
 
     ensure_spotify_token()
 
