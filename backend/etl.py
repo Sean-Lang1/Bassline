@@ -186,12 +186,17 @@ def parse_hometown(bio):
     parts = [p.strip() for p in after.split(",")]
     first = parts[0]
 
+    truncated = False
+    if " and " in first.lower():
+        first = first[:first.lower().index(" and ")].strip()
+        truncated = True
+
     if " of " in first.lower():
         first = first.rsplit(" of ", 1)[-1].strip()
 
     hometown = first
 
-    if len(parts) >= 2:
+    if len(parts) >= 2 and not truncated:
         second = parts[1]
         words = second.lower().split()
         looks_like_place = len(words) <= 3 and not any(w in NOT_A_PLACE_WORDS for w in words)
@@ -492,8 +497,9 @@ def get_musicbrainz_hometown(artist_name, known_mbid=None):
 
             begin_area = data.get("begin-area") or {}
             area = data.get("area") or {}
+            area_is_country = area.get("type") == "Country"
 
-            if begin_area.get("name") and area.get("name"):
+            if begin_area.get("name") and area.get("name") and area_is_country:
                 result = begin_area["name"] + ", " + area["name"]
             elif begin_area.get("name"):
                 result = begin_area["name"]
@@ -626,6 +632,9 @@ def build_artist_profile(artist_name):
     base["listeners"] = info["listeners"]
     base["summary"] = info["summary"]
     base["top_tracks"] = get_artist_top_tracks(artist_name, base["id"])
+
+    if not base.get("image") and base["top_tracks"]:
+        base["image"] = base["top_tracks"][0].get("album_image")
 
     conn = get_connection()
     cur = conn.cursor()
@@ -780,6 +789,9 @@ def build_artist_relations(artist_name, limit_related=8):
             )
         else:
             c["top_tracks"] = []
+
+        if not c.get("image") and c["top_tracks"]:
+            c["image"] = c["top_tracks"][0].get("album_image")
 
         related.append(c)
 
