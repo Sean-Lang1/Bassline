@@ -6,8 +6,6 @@
 <title>Bassline Globe</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Geist+Pixel&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Boogaloo&family=Geist+Pixel&display=swap" rel="stylesheet">
 <style>
@@ -31,6 +29,7 @@ body{
 }
 
 /* ===== FUNKY 70'S TYPE BACKGROUND ===== */
+
 #bgLayer{
   position:fixed; inset:0; z-index:0; pointer-events:none;
   background:var(--bg);
@@ -161,7 +160,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 .miniName{ font-family:"Bungee",sans-serif; font-size:20px; color:var(--cream); }
 .miniRel{
   display:inline-block; margin:4px 0; padding:2px 10px; border-radius:999px;
-  font-size:11px; font-weight:700; background:var(--gold); color:#1b1208;
+  font-size:11px; font-weight:700; color:#1b1208;
   cursor:pointer;
 }
 .miniRel:hover{ filter:brightness(1.15); }
@@ -188,8 +187,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   cursor: pointer;
   transition: transform 0.15s ease;
 }
-.trackRow img:hover {
-  transform:translateX(5px);
+.trackRow:hover {
   color:var(--cream);
 }
 .trackRow span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -229,6 +227,17 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   transform:scale(1.05);
 }
 #viewRelatedBtn:hover{ filter:brightness(1.1); }
+#dataNote{
+  position:absolute;
+  bottom:24px;
+  left:30px;
+  z-index:100;
+  font-family:"Outfit",sans-serif;
+  font-size:12px;
+  letter-spacing:.4px;
+  color:rgba(255,246,232,.55);
+  max-width:400px;
+}
 
 /* ===== RE-CENTER & GLOBE SPINNER ===== */
 #recenterBtn{
@@ -272,16 +281,22 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 
 #logo span{
   display:block;
-  margin-top:12px;
+  margin-top:8px;
   font-family:"Outfit",sans-serif;
-  font-size:12px;
-  letter-spacing:1px;
-  color:rgba(255,246,232,.55);
+  font-size:11px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:rgba(255,246,232,.45);
 }
 
 </style>
 </head>
 <body>
+
+<div id="logo">
+  BASSLINE
+  <span>Music connections across the globe</span>
+</div>
 
 <div id="bgLayer">
   <div class="blob blob1"></div>
@@ -302,11 +317,6 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 <div id="dataNote">
   * 🎶 Powered by data from Spotify, Last.fm & MusicBrainz. Connections and results may vary.
 </div>
-
-<button id="recenterBtn" title="Recenter">&#8635;</button>
-<div id="spinner" aria-hidden="true"></div>
-<div id="loadingText" aria-hidden="true"></div>
-<canvas id="globe"></canvas>
 
 <button id="recenterBtn" title="Recenter">&#8635;</button>
 <div id="spinner" aria-hidden="true"></div>
@@ -443,8 +453,8 @@ const linesGroup = new THREE.Group();
 globeGroup.add(linesGroup);
 
 const NODE_RADIUS = 1.02;
-const nodeGeom = new THREE.SphereGeometry(0.012, 16, 16);
-const baseNodeGeom = new THREE.SphereGeometry(0.019, 16, 16);
+const nodeGeom = new THREE.SphereGeometry(0.022, 16, 16);
+const baseNodeGeom = new THREE.SphereGeometry(0.035, 16, 16);
 const nodesById = new Map();
 const coordCounts = new Map();
 let generation = 0;
@@ -647,7 +657,10 @@ function showArtistPanel(screenX, screenY, artist) {
       <img class="artistImg" src="${artist.image || ""}" alt="" />
       <div class="panelInfo">
         <div class="miniName">${artist.name}</div>
-        ${artist.rel_type ? `<div class="miniRel" id="relTag">${artist.rel_type}</div>` : ""}
+        ${artist.rel_type ? `
+        <div class="miniRel" id="relTag" style="background:#${(REL_COLORS[artist.rel_type] || 0xd9932e).toString(16).padStart(6,"0")}">
+          ${artist.rel_type}
+        </div>` : ""}
         <div class="miniHometown">${artist.hometown || ""}</div>
         <div class="miniListeners">
         ${artist.listeners.toLocaleString()} monthly listeners
@@ -939,6 +952,7 @@ recenterBtn.addEventListener("click", () => {
 // CLICK HANDLING
 // =====================
 const raycaster = new THREE.Raycaster();
+raycaster.params.Mesh.threshold = 0.05;
 const mouse = new THREE.Vector2();
 
 window.addEventListener("click", (e) => {

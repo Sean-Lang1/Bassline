@@ -1,16 +1,11 @@
+from database import get_connection
+from pairs import DISCOVERED_PAIRS
 import time
 import config
 import requests
-from database import get_connection
-from pairs import DISCOVERED_PAIRS
-import json
-import os
-import sys
-import warnings
 import urllib3
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-warnings.filterwarnings('ignore')
 
 # =====================
 # SPOTIFY AUTH
@@ -61,39 +56,29 @@ def cache_key(name):
 # =====================
 # RETRY HELPER
 # =====================
-def request_with_retry(method, url, max_attempts=3, backoff_seconds=2, **kwargs):
+def request_with_retry(method, url, max_attempts=3, **kwargs):
 
-    last_error = None
-
-    for attempt in range(1, max_attempts + 1):
+    for attempt in range(max_attempts):
         try:
             response = method(url, timeout=10, **kwargs)
 
             if response.status_code == 429:
-                wait = int(response.headers.get("Retry-After", backoff_seconds))
-                wait = min(wait, 20)
-                print(f"[retry] {url} rate limited, waiting {wait}s "
-                      f"(attempt {attempt}/{max_attempts})")
-                last_error = "HTTP 429"
-                if attempt < max_attempts:
-                    time.sleep(wait)
+                print("Rate limited. Waiting...")
+                time.sleep(5)
                 continue
 
             if response.status_code >= 500:
-                print(f"[retry] {url} returned {response.status_code} "
-                      f"(attempt {attempt}/{max_attempts})")
-                last_error = f"HTTP {response.status_code}"
-            else:
-                return response
+                print(f"Server error {response.status_code}. Retrying...")
+                time.sleep(2)
+                continue
+
+            return response
 
         except requests.exceptions.RequestException as e:
-            print(f"[retry] {url} failed: {e} (attempt {attempt}/{max_attempts})")
-            last_error = str(e)
+            print(f"Request failed: {e}")
+            time.sleep(2)
 
-        if attempt < max_attempts:
-            time.sleep(backoff_seconds)
-
-    print(f"[error] giving up on {url} after {max_attempts} attempts: {last_error}")
+    print(f"Failed request after {max_attempts} attempts: {url}")
     return None
 
 # =====================
@@ -397,17 +382,6 @@ def search_spotify_artist(artist_name):
 # =====================
 # GEOCODING (for hometown)
 # =====================
-_last_call_times = {}
-
-def throttle(seconds):
-    caller = sys._getframe(1).f_code.co_name
-    last_call = _last_call_times.get(caller, 0)
-    elapsed = time.time() - last_call
-    if elapsed < seconds:
-        time.sleep(seconds - elapsed)
-    _last_call_times[caller] = time.time()
-
-
 def geocode_hometown(hometown):
     if not hometown:
         return None, None, ""
@@ -416,7 +390,7 @@ def geocode_hometown(hometown):
     if cached:
         return cached.get("lat"), cached.get("lon"), cached.get("display", hometown)
 
-    throttle(1)
+    time.sleep(1)
 
     r = request_with_retry(
         requests.get,
@@ -466,8 +440,8 @@ def get_musicbrainz_hometown(artist_name, known_mbid=None):
     mbid = known_mbid
 
     if mbid is None:
-        throttle(1)
-
+        time.sleep(1)
+         
         search = request_with_retry(
             requests.get,
             "https://musicbrainz.org/ws/2/artist/",
@@ -482,11 +456,16 @@ def get_musicbrainz_hometown(artist_name, known_mbid=None):
                 print(f"[error] MusicBrainz search returned bad JSON for {artist_name}: {e}")
                 artists = []
 
-            if artists:
+            for a in artists:
+                if a.get("name","").lower() == artist_name.lower():
+                    mbid = a["id"]
+                    break
+
+            if not mbid and artists:
                 mbid = artists[0]["id"]
 
     if mbid:
-        throttle(1)
+        time.sleep(1)
 
         detail = request_with_retry(
             requests.get,
@@ -516,12 +495,10 @@ def get_musicbrainz_hometown(artist_name, known_mbid=None):
     return result
 
 ALLOWED_REL_TYPES = [
-    "sibling", 
-    "married", 
-    "member of band", 
-    "collaboration", 
-    "partner",
-    "spouse",
+    "sibling",
+    "married",
+    "member of band",
+    "collaboration",
     "child",
     "parent",
     "artist",
@@ -529,12 +506,16 @@ ALLOWED_REL_TYPES = [
     ]
 
 def get_musicbrainz_relations(artist_name):
-    throttle(1)
+    time.sleep(1)
 
     search = request_with_retry(
         requests.get,
         "https://musicbrainz.org/ws/2/artist/",
-        params={"query": artist_name, "fmt": "json", "limit": 1},
+        params={
+            "query": f'artist:"{artist_name}"',
+            "fmt": "json",
+            "limit": 5
+        },
         headers={"User-Agent": "bassline-app/1.0"}
     )
 
@@ -550,9 +531,17 @@ def get_musicbrainz_relations(artist_name):
     if not artists:
         return []
 
-    mbid = artists[0]["id"]
+    mbid = None
 
-    throttle(1)
+    for a in artists:
+        if a.get("name","").lower() == artist_name.lower():
+            mbid = a["id"]
+            break
+
+    if not mbid:
+        return []
+
+    time.sleep(1)
 
     rels = request_with_retry(
         requests.get,
@@ -614,6 +603,7 @@ def build_artist_profile(artist_name):
         return None
 
     info = get_lastfm_artist_info(artist_name)
+
     hometown = info.get("hometown", "")
     if not hometown:
         hometown = get_musicbrainz_hometown(artist_name)
@@ -628,17 +618,36 @@ def build_artist_profile(artist_name):
 
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("SELECT spotify_id FROM artists WHERE spotify_id = %s", (base["id"],))
-    if not cur.fetchone():
-        import_artist(artist_name, hometown=hometown, lat=lat, lon=lon)
-    conn.close()
+
+    try:
+        cur.execute(
+            "SELECT spotify_id FROM artists WHERE spotify_id = %s",
+            (base["id"],)
+        )
+
+        if not cur.fetchone():
+            import_artist(
+                artist_name,
+                hometown=display or hometown,
+                lat=lat,
+                lon=lon,
+                spotify={
+                    "id": base["id"],
+                    "name": base["name"],
+                    "image": base["image"]
+                },
+                import_tracks=True
+            )
+
+    finally:
+        conn.close()
 
     return base
 
 # =====================
 # BUILD RELATIONS
 # =====================
-def build_artist_relations(artist_name, limit_related=13):
+def build_artist_relations(artist_name, limit_related=8):
     conn = get_connection()
     cur = conn.cursor()
 
@@ -652,32 +661,21 @@ def build_artist_relations(artist_name, limit_related=13):
 
     similar = get_lastfm_similar(artist_name)
     mb_relations = get_musicbrainz_relations(artist_name)
-
-    spotify_tracks = get_artist_top_tracks(
-        artist_name,
-        base_id
-    )
-
-    for track in spotify_tracks:
-        for collaborator in track.get("artists", []):
-
-            if collaborator.lower() != artist_name.lower():
-                try_add(
-                    collaborator,
-                    "collaboration"
-                )
-
+    
     candidates = []
     seen = set()
 
     def try_add(name, rel_type, mbid=None):
         if not is_valid_artist(name, artist_name):
             return
+
         if name.lower() in seen:
             return
+
         seen.add(name.lower())
 
         spotify = search_spotify_artist(name)
+
         if not spotify or spotify["id"] == base_id:
             return
 
@@ -692,7 +690,7 @@ def build_artist_relations(artist_name, limit_related=13):
             "rel_type": rel_type,
             "mbid": mbid
         })
-
+    
     for rel in mb_relations:
         try_add(rel["name"], rel["rel_type"], mbid=rel.get("mbid"))
 
@@ -742,17 +740,39 @@ def build_artist_relations(artist_name, limit_related=13):
         lat, lon, display = geocode_hometown(hometown)
 
         if lat is None or lon is None:
-            print(c["name"], "- no hometown found, skipping")
-            continue
+            if c["rel_type"] in (
+                "producer",
+                "collaboration",
+                "discovered",
+                "discovered by"
+            ):
+                lat = 0
+                lon = 0
+                display = "Unknown"
+
+            else:
+                print(c["name"], "- no hometown found, skipping")
+                continue
 
         print(c["name"], "[", c["listeners"], "]", c["rel_type"])
 
-        import_artist(c["name"], hometown=display or hometown, lat=lat, lon=lon)
+        import_artist(
+            c["name"],
+            hometown=display or hometown,
+            lat=lat,
+            lon=lon,
+            spotify={
+                "id": c["spotify_id"],
+                "name": c["name"],
+                "image": c["image"]
+            },
+            import_tracks=False
+        )
 
         c["hometown"] = display or hometown
         c["latitude"] = lat
         c["longitude"] = lon
-        c["top_tracks"] = get_artist_top_tracks(c["name"], c["spotify_id"])
+        c["top_tracks"] = []
         related.append(c)
 
         links.append({
@@ -784,13 +804,16 @@ def build_artist_relations(artist_name, limit_related=13):
 # =====================
 # IMPORT ARTIST
 # =====================
-def import_artist(artist_name, hometown=None, lat=None, lon=None):
+def import_artist(artist_name, hometown=None, lat=None, lon=None, spotify=None, import_tracks=True):
     conn = get_connection()
     cur = conn.cursor()
 
-    spotify = search_spotify_artist(artist_name)
+    if spotify is None:
+       spotify = search_spotify_artist(artist_name)
+
     if not spotify:
-        return
+            conn.close()
+            return None
 
     info = get_lastfm_artist_info(artist_name)
 
@@ -815,7 +838,9 @@ def import_artist(artist_name, hometown=None, lat=None, lon=None):
         lon
     ))
 
-    top_tracks = get_artist_top_tracks(artist_name, spotify["id"])
+    top_tracks = []
+    if import_tracks:
+        top_tracks = get_artist_top_tracks(artist_name, spotify["id"])
     for t in top_tracks:
         if not t.get("spotify_id"):
             continue
