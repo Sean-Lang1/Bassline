@@ -371,7 +371,7 @@ def search_spotify_artist(artist_name):
             break
 
     if artist is None:
-       return None
+        artist = items[0]
 
     images = artist.get("images", [])
     image_url = images[0]["url"] if images else None
@@ -511,6 +511,7 @@ ALLOWED_REL_TYPES = [
     "parent",
     "artist",
     "producer"
+    "similar"
     ]
 
 def get_musicbrainz_relations(artist_name):
