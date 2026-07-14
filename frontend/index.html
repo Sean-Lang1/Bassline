@@ -6,6 +6,9 @@
 <title>Bassline Globe</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Geist+Pixel&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Boogaloo&family=Geist+Pixel&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -111,7 +114,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 #searchBox{
   background:transparent; border:none; outline:none;
   color:var(--cream); font-size:19px; font-weight:600; width:320px;
-  font-family:"Geist Pixel","Outfit",sans-serif;
+  font-family:"Geist Pixel","Bungee",sans-serif;
 }
 #searchBox::placeholder{ color:rgba(255,246,232,0.5); }
 
@@ -197,7 +200,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   position:absolute; left:50%; top:calc(50% + 30px); transform:translateX(-50%);
   z-index:60; display:none;
   font-size:17px; font-weight:700; color:var(--dim);
-  font-family:"Outfit",sans-serif;
+  font-family:"Bungee",sans-serif;
   animation:fadeIn .5s ease;
 }
 </style>
@@ -595,20 +598,10 @@ function hidePanel() {
 }
 
 // =====================
-// CAMERA FOCUS (origined globe rotation + added keyboard functionality)
+// CAMERA FOCUS (origined globe rotation)
 // =====================
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const ROT_SPEED = 0.0008;
-
-const keys = {};
-
-window.addEventListener("keydown", (e) => {
-  keys[e.key.toLowerCase()] = true;
-});
-
-window.addEventListener("keyup", (e) => {
-  keys[e.key.toLowerCase()] = false;
-});
 
 function worldPosOf(lat, lon) {
   const local = latLonToVector3(Number(lat), Number(lon), NODE_RADIUS);
@@ -869,24 +862,6 @@ function animate(time) {
     if (nodesGroup.children.length > 0) {
       camera.position.applyAxisAngle(Y_AXIS, ROT_SPEED);
     }
-  }
-
-  const KEY_ROTATE_SPEED = 0.015;
-
-  // Left / Right
-  if (keys["arrowleft"] || keys["a"]) {
-    globeGroup.rotation.y += KEY_ROTATE_SPEED;
-  }
-  if (keys["arrowright"] || keys["d"]) {
-    globeGroup.rotation.y -= KEY_ROTATE_SPEED;
-  }
-
-  // Up / Down
-  if (keys["arrowup"] || keys["w"]) {
-    globeGroup.rotation.x += KEY_ROTATE_SPEED;
-  }
-  if (keys["arrowdown"] || keys["s"]) {
-    globeGroup.rotation.x -= KEY_ROTATE_SPEED;
   }
 
 globeGroup.rotation.x = Math.max(
