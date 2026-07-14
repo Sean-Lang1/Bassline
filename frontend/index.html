@@ -711,7 +711,7 @@ function hidePanel() {
 // CAMERA FOCUS (origined globe rotation)
 // =====================
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
-const ROT_SPEED = 0.0008;
+const ROT_SPEED = 0.001;
 
 function worldPosOf(lat, lon) {
   const local = latLonToVector3(Number(lat), Number(lon), NODE_RADIUS);

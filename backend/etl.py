@@ -12,7 +12,6 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 warnings.filterwarnings('ignore')
 
-
 # =====================
 # SPOTIFY AUTH
 # =====================
@@ -29,19 +28,16 @@ def get_spotify_token():
     expires_in = data.get("expires_in", 3600)
     return data["access_token"], time.time() + expires_in
 
-
 SPOTIFY_TOKEN, SPOTIFY_TOKEN_EXPIRY = get_spotify_token()
 SPOTIFY_HEADERS = {
     "Authorization": f"Bearer {SPOTIFY_TOKEN}"
 }
-
 
 def ensure_spotify_token():
     global SPOTIFY_TOKEN, SPOTIFY_TOKEN_EXPIRY, SPOTIFY_HEADERS
 
     if time.time() >= SPOTIFY_TOKEN_EXPIRY - 60:
         refresh_spotify_token()
-
 
 def refresh_spotify_token():
     global SPOTIFY_TOKEN, SPOTIFY_TOKEN_EXPIRY, SPOTIFY_HEADERS
@@ -55,7 +51,6 @@ def cache_read(cache_name):
 
 def cache_write(cache_name, data):
     _memory_cache[cache_name] = data
-
 
 # =====================
 # SAFE CACHE KEY
@@ -133,12 +128,25 @@ def is_valid_artist(name, source_artist):
 
 
 def extract_joint_artist(name, source_artist):
-    normalized = name.replace(" and ", " & ").replace(" And ", " & ")
-    if " & " not in normalized:
-        return None
-    for part in normalized.split(" & "):
-        if source_artist.lower() not in part.lower().strip():
-            return part.strip()
+
+    separators = [
+        " & ",
+        " and ",
+        " feat. ",
+        " ft. ",
+        " featuring ",
+        " with "
+    ]
+
+    lower = name.lower()
+    for sep in separators:
+        if sep in lower:
+            parts = name.split(sep)
+
+            for part in parts:
+                if source_artist.lower() not in part.lower():
+                    return part.strip()
+
     return None
 
 # =====================
@@ -170,7 +178,6 @@ def get_lastfm_similar(artist_name):
 
     cache_write(f"lastfm_similar_{cache_key(artist_name)}", result)
     return result
-
 
 NOT_A_PLACE_WORDS = {
     "he", "she", "they", "it", "was", "is", "were", "raised", "taught",
@@ -206,7 +213,6 @@ def parse_hometown(bio):
             hometown += ", " + second
 
     return hometown
-
 
 def get_lastfm_artist_info(artist_name):
     cached = cache_read(f"lastfm_info_{cache_key(artist_name)}")
@@ -509,8 +515,18 @@ def get_musicbrainz_hometown(artist_name, known_mbid=None):
     cache_write(f"mb_hometown_{cache_id}", result)
     return result
 
-
-ALLOWED_REL_TYPES = ["sibling", "married", "member of band", "collaboration"]
+ALLOWED_REL_TYPES = [
+    "sibling", 
+    "married", 
+    "member of band", 
+    "collaboration", 
+    "partner",
+    "spouse",
+    "child",
+    "parent",
+    "artist",
+    "producer"
+    ]
 
 def get_musicbrainz_relations(artist_name):
     throttle(1)
@@ -557,6 +573,10 @@ def get_musicbrainz_relations(artist_name):
     results = []
     for rel in data.get("relations", []):
         rel_type = rel.get("type")
+
+        if rel_type in ("spouse", "partner"):
+            rel_type = "married"
+
         if rel_type not in ALLOWED_REL_TYPES:
             continue
 
@@ -569,26 +589,24 @@ def get_musicbrainz_relations(artist_name):
 
     return results
 
-
 # =====================
-# RELATIONSHIP PRIORITY (for sorting which types matter most)
+# RELATIONSHIP PRIORITY 
 # =====================
 REL_PRIORITY = {
-    "member of band": 1,
-    "discovered": 2,
-    "discovered by": 2,
-    "sibling": 3,
-    "married": 3,
-    "similar": 4,
-    "collaboration": 4,
+    "married": 1,
+    "sibling": 1,
+    "member of band": 2,
+    "collaboration": 2,
+    "discovered": 3,
+    "discovered by": 3,
+    "similar": 5,
 }
 
 def rel_priority(rel_type):
     return REL_PRIORITY.get(rel_type, 99)
 
-
 # =====================
-# BUILD PROFILE (lightweight: one artist, no relations crawl)
+# BUILD ARTIST PROFILE 
 # =====================
 def build_artist_profile(artist_name):
     base = search_spotify_artist(artist_name)
@@ -617,7 +635,6 @@ def build_artist_profile(artist_name):
 
     return base
 
-
 # =====================
 # BUILD RELATIONS
 # =====================
@@ -635,6 +652,20 @@ def build_artist_relations(artist_name, limit_related=13):
 
     similar = get_lastfm_similar(artist_name)
     mb_relations = get_musicbrainz_relations(artist_name)
+
+    spotify_tracks = get_artist_top_tracks(
+        artist_name,
+        base_id
+    )
+
+    for track in spotify_tracks:
+        for collaborator in track.get("artists", []):
+
+            if collaborator.lower() != artist_name.lower():
+                try_add(
+                    collaborator,
+                    "collaboration"
+                )
 
     candidates = []
     seen = set()
@@ -673,13 +704,15 @@ def build_artist_relations(artist_name, limit_related=13):
 
     for rel in similar:
         name = rel["name"]
+
         joint = extract_joint_artist(name, artist_name)
+
         if joint:
             try_add(joint, "collaboration")
         else:
             try_add(name, "similar")
 
-    # sort by relationship priority first, then by popularity within each tier
+    # sort by priority first, then by popularity 
     candidates.sort(key=lambda x: (rel_priority(x["rel_type"]), -x["listeners"]))
 
     capped = []
