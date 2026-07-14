@@ -56,7 +56,13 @@ def cache_key(name):
 # =====================
 # RETRY HELPER
 # =====================
+SPOTIFY_RATE_LIMITED = False
+
 def request_with_retry(method, url, max_attempts=3, **kwargs):
+    global SPOTIFY_RATE_LIMITED
+
+    if SPOTIFY_RATE_LIMITED and "spotify" in url:
+        return None
 
     for attempt in range(max_attempts):
         try:
@@ -78,6 +84,9 @@ def request_with_retry(method, url, max_attempts=3, **kwargs):
         except requests.exceptions.RequestException as e:
             print(f"Request failed: {e}")
             time.sleep(2)
+
+    if "spotify" in url:
+        SPOTIFY_RATE_LIMITED = True
 
     print(f"Failed request after {max_attempts} attempts: {url}")
     return None
@@ -614,6 +623,9 @@ def rel_priority(rel_type):
 # BUILD ARTIST PROFILE
 # =====================
 def build_artist_profile(artist_name):
+    global SPOTIFY_RATE_LIMITED
+    SPOTIFY_RATE_LIMITED = False
+
     base = search_spotify_artist(artist_name)
     if not base:
         return None
@@ -741,7 +753,7 @@ def build_artist_relations(artist_name, limit_related=8):
                 continue
             family_count += 1
         capped.append(c)
-    candidates = capped
+    candidates = capped[:24]
 
     related = []
     links = []
