@@ -97,17 +97,15 @@ def get_tracks_from_db(artist_spotify_id):
 
     return [
         {
-            "id": row["spotify_id"],
             "name": row["name"],
-            "album": {
-                "name": row["album_name"],
-                "images": [{"url": row["image_url"]}] if row["image_url"] else []
-            },
-            "release_date": row["release_date"]
+            "spotify_id": row["spotify_id"],
+            "album_name": row["album_name"],
+            "release_date": row["release_date"],
+            "album_image": row["image_url"],
+            "artists": []
         }
         for row in rows
     ]
-    
 
 # =====================
 # RETRY HELPER
@@ -325,7 +323,7 @@ def get_artist_top_tracks(artist_name, artist_id=None):
     if cached:
         return cached
     
-    db_tracks = get_tracks_from_db(artist_id)
+    db_tracks = get_tracks_from_db(artist_id) if artist_id else None
 
     if db_tracks:
         cache_write(f"top_tracks_{cache_id}", db_tracks)
