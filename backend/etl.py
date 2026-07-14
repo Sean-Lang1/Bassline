@@ -752,9 +752,65 @@ def build_artist_relations(artist_name, limit_related=8):
 
     base = build_artist_profile(artist_name)
     if not base:
+        conn.close()
         return None
 
     base_id = base["id"]
+
+    cur.execute("""
+        SELECT COUNT(*)
+        FROM artist_links
+        WHERE source_id = %s
+    """, (base_id,))
+
+    if cur.fetchone()["count"] > 0:
+        cur.execute("""
+            SELECT
+                a.spotify_id,
+                a.name,
+                a.hometown,
+                a.listeners,
+                a.summary,
+                a.image_url,
+                a.latitude,
+                a.longitude,
+                l.relationship
+            FROM artist_links l
+            JOIN artists a
+                ON l.target_id = a.spotify_id
+            WHERE l.source_id = %s
+            ORDER BY a.listeners DESC
+        """, (base_id,))
+
+        rows = cur.fetchall()
+        conn.close()
+
+        return {
+            "artist": base,
+            "related": [
+                {
+                    "spotify_id": r["spotify_id"],
+                    "name": r["name"],
+                    "hometown": r["hometown"],
+                    "listeners": r["listeners"],
+                    "summary": r["summary"],
+                    "image": r["image_url"],
+                    "latitude": r["latitude"],
+                    "longitude": r["longitude"],
+                    "rel_type": r["relationship"]
+                }
+                for r in rows
+            ],
+            "links": [
+        {
+            "source": base_id,
+            "target": r["spotify_id"],
+            "rel_type": r["relationship"],
+            "listeners": r["listeners"]
+        }
+        for r in rows
+    ]
+        }
 
     similar = get_lastfm_similar(artist_name)
     mb_relations = get_musicbrainz_relations(artist_name)
