@@ -613,9 +613,9 @@ def build_artist_profile(artist_name):
 
     info = get_lastfm_artist_info(artist_name)
 
-    hometown = info.get("hometown", "")
+    hometown = get_musicbrainz_hometown(artist_name)
     if not hometown:
-        hometown = get_musicbrainz_hometown(artist_name)
+        hometown = info.get("hometown", "")
 
     lat, lon, display = geocode_hometown(hometown)
 
