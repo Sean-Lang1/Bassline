@@ -338,7 +338,7 @@ def search_spotify_artist(artist_name):
         params={
             "q": f"artist:{artist_name}",
             "type": "artist",
-            "limit": 1
+            "limit": 3
         }
     )
 
@@ -363,7 +363,15 @@ def search_spotify_artist(artist_name):
         print(f"[spotify] no results for '{artist_name}' (status {r.status_code})")
         return None
 
-    artist = items[0]
+    artist = None
+
+    for item in items:
+        if item["name"].lower() == artist_name.lower():
+            artist = item
+            break
+
+    if artist is None:
+       return None
 
     images = artist.get("images", [])
     image_url = images[0]["url"] if images else None
@@ -607,6 +615,7 @@ def build_artist_profile(artist_name):
     hometown = info.get("hometown", "")
     if not hometown:
         hometown = get_musicbrainz_hometown(artist_name)
+
     lat, lon, display = geocode_hometown(hometown)
 
     base["hometown"] = display or hometown
@@ -766,21 +775,25 @@ def build_artist_relations(artist_name, limit_related=8):
                 "name": c["name"],
                 "image": c["image"]
             },
-            import_tracks=False
+            import_tracks=c["listeners"] >= 5000
         )
 
-        c["hometown"] = display or hometown
-        c["latitude"] = lat
-        c["longitude"] = lon
-        c["top_tracks"] = []
+        if c["listeners"] >= 5000:
+            c["top_tracks"] = get_artist_top_tracks(
+                c["name"],
+                c["spotify_id"]
+            )
+        else:
+            c["top_tracks"] = []
+                
         related.append(c)
 
         links.append({
-            "source": base_id,
-            "target": c["spotify_id"],
-            "rel_type": c["rel_type"],
-            "listeners": c["listeners"]
-        })
+                "source": base_id,
+                "target": c["spotify_id"],
+                "rel_type": c["rel_type"],
+                "listeners": c["listeners"]
+            })
 
     for e in links:
         cur.execute("""
