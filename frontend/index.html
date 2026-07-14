@@ -130,8 +130,9 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   display:flex; gap:14px; align-items:flex-start;
 }
 .panelBody img.artistImg{
-  width:225px; height:225px; object-fit:cover;
+  width:200px; height:200px; object-fit:cover;
   border-radius:12px; flex-shrink:0;
+  margin-top:12px;
   background:linear-gradient(135deg,var(--avocado),var(--gold));
 }
 .panelInfo{ flex:1; min-width:0; }
@@ -195,8 +196,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   position:absolute; left:50%; top:calc(50% + 30px); transform:translateX(-50%);
   z-index:60; display:none;
   font-size:17px; font-weight:700; color:var(--dim);
-  font-family:"Geist Pixel","Outfit",sans-serif;
-  font-variation-settings:"ELSH" 1;
+  font-family:"Outfit",sans-serif;
   animation:fadeIn .5s ease;
 }
 </style>
@@ -516,7 +516,8 @@ let loadingInterval = null;
 const LOADING_MESSAGES = [
   "Building music map...",
   "Finding collaborations...",
-  "Linking basslines..."
+  "Following the sound...",
+  "Adding connections..."
 ];
 
 function showSpinner(show) {
@@ -549,18 +550,12 @@ function showArtistPanel(screenX, screenY, artist) {
     `)
     .join("");
 
-  let relLabel = "";
-  if (artist.rel_type) {
-    const against = currentBaseName && currentBaseName !== artist.name ? ` ${currentBaseName}` : "";
-    relLabel = artist.rel_type + against;
-  }
-
   miniPanel.innerHTML = `
     <div class="panelBody">
       <img class="artistImg" src="${artist.image || ""}" alt="" />
       <div class="panelInfo">
         <div class="miniName">${artist.name}</div>
-        ${relLabel ? `<div class="miniRel" id="relTag">${relLabel}</div>` : ""}
+        ${artist.rel_type ? `<div class="miniRel" id="relTag">${artist.rel_type}</div>` : ""}
         <div class="miniHometown">${artist.hometown || ""}</div>
         ${artist.summary ? `<div class="miniBio">${artist.summary}</div>` : ""}
         ${tracks ? `<div class="tracksHeading">Popular Tracks</div>` : ""}
@@ -581,9 +576,9 @@ function showArtistPanel(screenX, screenY, artist) {
   });
 
   const relTag = document.getElementById("relTag");
-  if (relTag && currentBaseId && nodesById.has(currentBaseId)) {
+  if (relTag && artist.base_id && nodesById.has(artist.base_id)) {
     relTag.addEventListener("click", async () => {
-      const baseMesh = nodesById.get(currentBaseId);
+      const baseMesh = nodesById.get(artist.base_id);
       const baseWorld = baseMesh.getWorldPosition(new THREE.Vector3());
       hidePanel();
       await flyCameraTo(baseWorld, 2.2, easeOutBack);
@@ -639,7 +634,7 @@ function flyCameraTo(direction, distance, easingFn = easeInOutQuad, frames = 40)
 
 function focusOnLatLon(lat, lon) {
   if (lat == null || lon == null) return Promise.resolve();
-  return flyCameraTo(worldPosOf(lat, lon), 2.2, easeOutBack, 80);
+  return flyCameraTo(worldPosOf(lat, lon), 2.2, easeOutBack, 160);
 }
 
 // =====================
@@ -773,9 +768,16 @@ async function loadRelations(name) {
     const basePos = addNode(data.artist) ||
       (nodesById.get(data.artist.id) && nodesById.get(data.artist.id).position.clone());
 
+    const baseMesh = nodesById.get(currentBaseId);
+    if (baseMesh && baseMesh.userData.rel_type) {
+      baseMesh.scale.setScalar(1.6);
+      baseMesh.userData.targetOpacity = baseMesh.userData.baseOpacity;
+    }
+
     const clusterSum = basePos ? basePos.clone() : new THREE.Vector3();
 
     data.related.forEach((rel) => {
+      rel.base_id = currentBaseId;
       const relPos = addNode(rel);
       if (basePos && relPos) {
         addLine(basePos, relPos, rel.rel_type);
@@ -784,7 +786,9 @@ async function loadRelations(name) {
     });
 
     if (clusterSum.lengthSq() > 0) {
-      await flyCameraTo(clusterSum.applyAxisAngle(Y_AXIS, globeGroup.rotation.y), 3.2, easeOutBack);
+      const clusterDir = clusterSum.applyAxisAngle(Y_AXIS, globeGroup.rotation.y).normalize();
+      clusterDir.y -= 0.3;
+      await flyCameraTo(clusterDir, 3.0, easeOutBack, 64);
     }
 
     globeRotating = true;
