@@ -499,7 +499,9 @@ def get_musicbrainz_hometown(artist_name, known_mbid=None):
             begin_area = data.get("begin-area") or {}
             area = data.get("area") or {}
 
-            if begin_area.get("name"):
+            if begin_area.get("name") and area.get("name"):
+                result = begin_area["name"] + ", " + area["name"]
+            elif begin_area.get("name"):
                 result = begin_area["name"]
             elif area.get("name"):
                 result = area["name"]
