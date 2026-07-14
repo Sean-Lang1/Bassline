@@ -168,9 +168,9 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 .tracksHeading{
   font-size:13px; font-weight:700; color:white; margin:6px 0 4px 0;
 }
-.miniHometown{ font-size:12px; font-style:italic; color:var(--dim); margin-bottom:6px; }
+.miniHometown{ font-size:13px; font-style:italic; color:var(--dim); margin-bottom:6px; }
 .miniBio{
-  font-size:11px; color:var(--dim); margin-bottom:8px; line-height:1.4;
+  font-size:14px; color:var(--dim); margin-bottom:8px; line-height:1.4;
   display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
   cursor:default; transition:all 0.2s ease;
 }
@@ -194,7 +194,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 }
 .trackRow span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #viewRelatedBtn{
-  display:block; margin:12px auto 0 auto; padding:9px 22px; border-radius:10px; border:none;
+  display:block; margin:14px auto 0 auto; padding:9px 22px; border-radius:12px; border:none;
   background:linear-gradient(180deg,var(--gold),var(--cream));
   color:white; font-weight:400; font-size:14px;
   font-family:"Bungee",sans-serif; cursor:pointer;
@@ -252,10 +252,33 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 #loadingText{
   position:absolute; left:50%; top:calc(50% + 30px); transform:translateX(-50%);
   z-index:60; display:none;
-  font-size:17px; font-weight:700; color:var(--dim);
+  font-size:20px; font-weight:700; color:var(--dim);
   font-family:"Bungee",sans-serif;
   animation:fadeIn .5s ease;
 }
+#logo{
+  position:absolute;
+  top:28px;
+  left:30px;
+  z-index:40;
+  font-family:"Bungee",sans-serif;
+  font-size:34px;
+  line-height:.85;
+  letter-spacing:2px;
+  color:var(--cream);
+  text-shadow:
+    0 4px 15px rgba(0,0,0,.6);
+}
+
+#logo span{
+  display:block;
+  margin-top:12px;
+  font-family:"Outfit",sans-serif;
+  font-size:12px;
+  letter-spacing:1px;
+  color:rgba(255,246,232,.55);
+}
+
 </style>
 </head>
 <body>
@@ -275,6 +298,15 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 <div id="search" role="search">
   <input id="searchBox" placeholder="Search an artist... (ex: Michael Jackson)" autocomplete="off" />
 </div>
+
+<div id="dataNote">
+  * 🎶 Powered by data from Spotify, Last.fm & MusicBrainz. Connections and results may vary.
+</div>
+
+<button id="recenterBtn" title="Recenter">&#8635;</button>
+<div id="spinner" aria-hidden="true"></div>
+<div id="loadingText" aria-hidden="true"></div>
+<canvas id="globe"></canvas>
 
 <button id="recenterBtn" title="Recenter">&#8635;</button>
 <div id="spinner" aria-hidden="true"></div>
@@ -618,7 +650,7 @@ function showArtistPanel(screenX, screenY, artist) {
         ${artist.rel_type ? `<div class="miniRel" id="relTag">${artist.rel_type}</div>` : ""}
         <div class="miniHometown">${artist.hometown || ""}</div>
         <div class="miniListeners">
-        ${artist.listeners.toLocaleString()} listeners
+        ${artist.listeners.toLocaleString()} monthly listeners
         </div>
         ${artist.summary ? `<div class="miniBio">${artist.summary}</div>` : ""}
         ${tracks ? `<div class="tracksHeading">Popular Tracks</div>` : ""}
