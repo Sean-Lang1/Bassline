@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Bassline Globe</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Boogaloo&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Boogaloo&family=Geist+Pixel:ELSH@1..80&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#040302;
@@ -109,14 +109,15 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 #searchBox{
   background:transparent; border:none; outline:none;
   color:var(--cream); font-size:19px; font-weight:600; width:320px;
-  font-family:"Outfit",sans-serif;
+  font-family:"Geist Pixel","Outfit",sans-serif;
+  font-variation-settings:"ELSH" 1;
 }
 #searchBox::placeholder{ color:rgba(255,246,232,0.5); }
 
 /* ===== ARTIST POPUP (horizontal: image left, tracks right) ===== */
 #miniPanel{
   position:absolute; z-index:50; display:none;
-  width:380px; padding:14px; border-radius:16px;
+  width:520px; padding:14px; border-radius:16px;
   background:
     linear-gradient(rgba(20,14,8,0.72), rgba(20,14,8,0.72)) padding-box,
     linear-gradient(135deg, var(--lime), var(--gold), var(--orange)) border-box;
@@ -126,18 +127,23 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   box-shadow:0 14px 34px rgba(0,0,0,0.55);
 }
 .panelBody{
-  display:flex; gap:12px; align-items:flex-start;
+  display:flex; gap:14px; align-items:flex-start;
 }
 .panelBody img.artistImg{
-  width:150px; height:150px; object-fit:cover;
+  width:225px; height:225px; object-fit:cover;
   border-radius:12px; flex-shrink:0;
   background:linear-gradient(135deg,var(--avocado),var(--gold));
 }
 .panelInfo{ flex:1; min-width:0; }
-.miniName{ font-family:"Boogaloo",sans-serif; font-size:16px; color:var(--cream); }
+.miniName{ font-family:"Boogaloo",sans-serif; font-size:20px; color:var(--cream); }
 .miniRel{
   display:inline-block; margin:4px 0; padding:2px 10px; border-radius:999px;
   font-size:11px; font-weight:700; background:var(--gold); color:#1b1208;
+  cursor:pointer;
+}
+.miniRel:hover{ filter:brightness(1.15); }
+.tracksHeading{
+  font-size:13px; font-weight:700; color:white; margin:6px 0 4px 0;
 }
 .miniHometown{ font-size:12px; font-style:italic; color:var(--dim); margin-bottom:6px; }
 .miniBio{
@@ -162,6 +168,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   background:linear-gradient(180deg,var(--gold),var(--orange));
   color:white; font-weight:400; font-size:14px;
   font-family:"Boogaloo",sans-serif; cursor:pointer;
+  text-shadow:0 2px 4px rgba(0,0,0,0.45);
 }
 #viewRelatedBtn:hover{ filter:brightness(1.1); }
 
@@ -188,7 +195,8 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   position:absolute; left:50%; top:calc(50% + 30px); transform:translateX(-50%);
   z-index:60; display:none;
   font-size:17px; font-weight:700; color:var(--dim);
-  font-family:"Outfit",sans-serif;
+  font-family:"Geist Pixel","Outfit",sans-serif;
+  font-variation-settings:"ELSH" 1;
   animation:fadeIn .5s ease;
 }
 </style>
@@ -347,6 +355,7 @@ globeGroup.add(linesGroup);
 
 const NODE_RADIUS = 1.02;
 const nodeGeom = new THREE.SphereGeometry(0.012, 16, 16);
+const baseNodeGeom = new THREE.SphereGeometry(0.019, 16, 16);
 const nodesById = new Map();
 const coordCounts = new Map();
 let generation = 0;
@@ -361,11 +370,11 @@ function clearGraph() {
 
 function dimOlderGenerations() {
   [...nodesGroup.children, ...linesGroup.children].forEach((obj) => {
-    if (!obj.userData.rel_type) return; // base/anchor nodes never dim
+    if (!obj.userData.rel_type) return;
 
     const age = generation - obj.userData.gen;
     if (age > 0) {
-      const dimFactor = Math.max(0.15, 1 - age * 0.4);
+      const dimFactor = Math.max(0.1, 1 - age * 0.45);
       obj.material.color.lerp(new THREE.Color(0x666666), 0.55);
       obj.userData.targetOpacity = obj.userData.baseOpacity * dimFactor;
     }
@@ -391,7 +400,6 @@ function addNode(artist) {
   const id = artist.spotify_id || artist.id;
   if (nodesById.has(id)) return nodesById.get(id).position.clone();
 
-  // fan out nodes that share the same spot so they don't stack invisibly
   const coordKey = `${lat.toFixed(2)},${lon.toFixed(2)}`;
   const collisions = coordCounts.get(coordKey) || 0;
   coordCounts.set(coordKey, collisions + 1);
@@ -408,7 +416,7 @@ function addNode(artist) {
     transparent: true,
     opacity: 0
   });
-  const mesh = new THREE.Mesh(nodeGeom, mat);
+  const mesh = new THREE.Mesh(artist.rel_type ? nodeGeom : baseNodeGeom, mat);
   const pos = latLonToVector3(lat, lon, NODE_RADIUS);
   mesh.position.copy(pos);
   mesh.userData = { ...artist, gen: generation, baseOpacity: 0.6, targetOpacity: 0.6 };
@@ -464,7 +472,9 @@ function addLine(posA, posB, relType) {
   linesGroup.add(line);
 }
 
-// line draw-in + opacity easing + bass-string vibration, runs every frame
+// =====================
+// LINE ANIMATION
+// =====================
 function animateGraph(time) {
   linesGroup.children.forEach((line) => {
     if (line.userData.drawProgress < line.userData.totalPoints) {
@@ -506,8 +516,7 @@ let loadingInterval = null;
 const LOADING_MESSAGES = [
   "Building music map...",
   "Finding collaborations...",
-  "Following the sound...",
-  "Adding connections..."
+  "Linking basslines..."
 ];
 
 function showSpinner(show) {
@@ -527,6 +536,7 @@ function showSpinner(show) {
 }
 
 let currentBaseName = "";
+let currentBaseId = null;
 
 function showArtistPanel(screenX, screenY, artist) {
   const tracks = (artist.top_tracks || [])
@@ -550,16 +560,17 @@ function showArtistPanel(screenX, screenY, artist) {
       <img class="artistImg" src="${artist.image || ""}" alt="" />
       <div class="panelInfo">
         <div class="miniName">${artist.name}</div>
-        ${relLabel ? `<div class="miniRel">${relLabel}</div>` : ""}
+        ${relLabel ? `<div class="miniRel" id="relTag">${relLabel}</div>` : ""}
         <div class="miniHometown">${artist.hometown || ""}</div>
         ${artist.summary ? `<div class="miniBio">${artist.summary}</div>` : ""}
+        ${tracks ? `<div class="tracksHeading">Popular Tracks</div>` : ""}
         ${tracks}
       </div>
     </div>
     <button id="viewRelatedBtn">View Related Artists</button>
   `;
 
-  const panelW = 380;
+  const panelW = 520;
   const clampedX = Math.min(screenX, window.innerWidth - panelW - 20);
   miniPanel.style.left = `${Math.max(10, clampedX)}px`;
   miniPanel.style.top = `${Math.max(10, screenY)}px`;
@@ -568,6 +579,18 @@ function showArtistPanel(screenX, screenY, artist) {
   document.getElementById("viewRelatedBtn").addEventListener("click", () => {
     loadRelations(artist.name);
   });
+
+  const relTag = document.getElementById("relTag");
+  if (relTag && currentBaseId && nodesById.has(currentBaseId)) {
+    relTag.addEventListener("click", async () => {
+      const baseMesh = nodesById.get(currentBaseId);
+      const baseWorld = baseMesh.getWorldPosition(new THREE.Vector3());
+      hidePanel();
+      await flyCameraTo(baseWorld, 2.2, easeOutBack);
+      const screen = screenPosOf(baseMesh.getWorldPosition(new THREE.Vector3()));
+      showArtistPanel(screen.x + 24, screen.y - 40, baseMesh.userData);
+    });
+  }
 }
 
 function hidePanel() {
@@ -596,10 +619,9 @@ function easeOutBack(t) {
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
 
-function flyCameraTo(direction, distance, easingFn = easeInOutQuad) {
+function flyCameraTo(direction, distance, easingFn = easeInOutQuad, frames = 40) {
   const endPos = direction.clone().normalize().multiplyScalar(distance);
   const startPos = camera.position.clone();
-  const frames = 40;
   let i = 0;
 
   return new Promise((resolve) => {
@@ -617,10 +639,12 @@ function flyCameraTo(direction, distance, easingFn = easeInOutQuad) {
 
 function focusOnLatLon(lat, lon) {
   if (lat == null || lon == null) return Promise.resolve();
-  return flyCameraTo(worldPosOf(lat, lon), 2.2, easeOutBack);
+  return flyCameraTo(worldPosOf(lat, lon), 2.2, easeOutBack, 80);
 }
 
-// gentle breathing zoom while waiting on a fetch, like a slow bass pulse
+// =====================
+// LOADING PULSE
+// =====================
 let pulsing = false;
 
 function startPulse() {
@@ -693,6 +717,7 @@ async function loadProfile(name) {
 
     const artist = await res.json();
     currentBaseName = artist.name;
+    currentBaseId = artist.spotify_id || artist.id;
 
     clearGraph();
 
@@ -740,6 +765,7 @@ async function loadRelations(name) {
 
     const data = await res.json();
     currentBaseName = data.artist.name;
+    currentBaseId = data.artist.spotify_id || data.artist.id;
 
     generation += 1;
     dimOlderGenerations();
@@ -757,7 +783,6 @@ async function loadRelations(name) {
       }
     });
 
-    // fly out toward the center of the new cluster so the whole web is visible
     if (clusterSum.lengthSq() > 0) {
       await flyCameraTo(clusterSum.applyAxisAngle(Y_AXIS, globeGroup.rotation.y), 3.2, easeOutBack);
     }
@@ -826,8 +851,6 @@ function animate(time) {
   if (globeRotating) {
     globeGroup.rotation.y += ROT_SPEED;
 
-    // once a graph exists, the camera turns with the globe
-    // so the focused node stays centered instead of drifting away
     if (nodesGroup.children.length > 0) {
       camera.position.applyAxisAngle(Y_AXIS, ROT_SPEED);
     }
