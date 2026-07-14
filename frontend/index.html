@@ -747,7 +747,7 @@ function easeOutBack(t) {
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
 
-function flyCameraTo(direction, distance, easingFn = easeInOutQuad, frames = 40) {
+function flyCameraTo(direction, distance, easingFn = easeInOutQuad, frames = 80) {
   const endPos = direction.clone().normalize().multiplyScalar(distance);
   const startPos = camera.position.clone();
   let i = 0;
