@@ -77,6 +77,38 @@ def get_artist_from_db(artist_name):
         "images": []
     }
 
+def get_tracks_from_db(artist_spotify_id):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT spotify_id, name, album_name, image_url, release_date
+        FROM tracks
+        WHERE artist_id = %s
+        ORDER BY id
+        LIMIT 5
+    """, (artist_spotify_id,))
+
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        return None
+
+    return [
+        {
+            "id": row["spotify_id"],
+            "name": row["name"],
+            "album": {
+                "name": row["album_name"],
+                "images": [{"url": row["image_url"]}] if row["image_url"] else []
+            },
+            "release_date": row["release_date"]
+        }
+        for row in rows
+    ]
+    
+
 # =====================
 # RETRY HELPER
 # =====================
@@ -292,6 +324,12 @@ def get_artist_top_tracks(artist_name, artist_id=None):
     cached = cache_read(f"top_tracks_{cache_id}")
     if cached:
         return cached
+    
+    db_tracks = get_tracks_from_db(artist_id)
+
+    if db_tracks:
+        cache_write(f"top_tracks_{cache_id}", db_tracks)
+        return db_tracks
 
     ensure_spotify_token()
 
