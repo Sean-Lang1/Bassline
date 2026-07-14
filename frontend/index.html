@@ -110,6 +110,17 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   border:2px solid rgba(192,139,46,0.7);
   box-shadow: 0 8px 30px var(--shadow), 0 0 24px rgba(192,139,46,0.2), inset 0 1px 0 rgba(255,255,255,0.12);
   min-width:400px; max-width:86%;
+  animation:searchEnter .7s cubic-bezier(.2,1.4,.4,1);
+}
+@keyframes searchEnter{
+  from{
+    opacity:0;
+    transform:translateX(-50%) translateX(-80px);
+  }
+  to{
+    opacity:1;
+    transform:translateX(-50%) translateX(0);
+  }
 }
 #searchBox{
   background:transparent; border:none; outline:none;
@@ -129,6 +140,13 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   backdrop-filter: blur(14px) saturate(130%);
   -webkit-backdrop-filter: blur(14px) saturate(130%);
   box-shadow:0 14px 34px rgba(0,0,0,0.55);
+    opacity:0;
+  transform:translateY(15px) scale(0.96);
+  transition:opacity .25s ease, transform .25s ease;
+}
+#miniPanel.show{
+  opacity:1;
+  transform:translateY(0) scale(1);
 }
 .panelBody{
   display:flex; gap:14px; align-items:flex-start;
@@ -162,6 +180,7 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
 .trackRow{
   display:flex; align-items:center; gap:8px;
   font-size:12px; color:var(--dim); margin-bottom:4px;
+  transition:transform .15s ease, color .15s ease;
 }
 .trackRow img{
   width:26px; height:26px; border-radius:5px; object-fit:cover; flex-shrink:0;
@@ -170,7 +189,8 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   transition: transform 0.15s ease;
 }
 .trackRow img:hover {
-  transform: scale(1.08);
+  transform:translateX(5px);
+  color:var(--cream);
 }
 .trackRow span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #viewRelatedBtn{
@@ -179,6 +199,34 @@ canvas{ position:relative; z-index:1; display:block; width:100vw; height:100vh }
   color:white; font-weight:400; font-size:14px;
   font-family:"Bungee",sans-serif; cursor:pointer;
   text-shadow:0 2px 4px rgba(0,0,0,0.45);
+}
+.albumWrap{
+  position:relative;
+  width:26px;
+  height:26px;
+  flex-shrink:0;
+}
+.albumWrap img{
+  width:26px;
+  height:26px;
+  border-radius:5px;
+  object-fit:cover;
+}
+.playBtn{
+  position:absolute;
+  inset:0;
+  border:none;
+  border-radius:5px;
+  background:rgba(0,0,0,0.65);
+  color:white;
+  font-size:12px;
+  opacity:0;
+  cursor:pointer;
+  transition:opacity .15s ease, transform .15s ease;
+}
+.albumWrap:hover .playBtn{
+  opacity:1;
+  transform:scale(1.05);
 }
 #viewRelatedBtn:hover{ filter:brightness(1.1); }
 
@@ -553,9 +601,10 @@ function showArtistPanel(screenX, screenY, artist) {
     .slice(0, 5)
     .map((t) => `
       <div class="trackRow">
-        <a href="https://open.spotify.com/track/${t.spotify_id}" target="_blank" rel="noopener noreferrer">
-        <img src="${t.album_image || ""}" alt="" />
-      </a>
+        <div class="albumWrap">
+          <img src="${t.album_image || ""}" alt="" />
+          <button class="playBtn" data-track="${t.spotify_id}">▶</button>
+        </div>
         <span>${t.name}</span>
       </div>
     `)
@@ -585,6 +634,10 @@ function showArtistPanel(screenX, screenY, artist) {
   miniPanel.style.top = `${Math.max(10, screenY)}px`;
   miniPanel.style.display = "block";
 
+  requestAnimationFrame(()=>{
+    miniPanel.classList.add("show");
+  });
+
   document.getElementById("viewRelatedBtn").addEventListener("click", () => {
     loadRelations(artist.name);
   });
@@ -602,8 +655,23 @@ function showArtistPanel(screenX, screenY, artist) {
   }
 }
 
+document.addEventListener("click", (e)=>{
+  const btn = e.target.closest(".playBtn");
+  if(!btn) return;
+
+  const id = btn.dataset.track;
+
+  window.open(
+    `https://open.spotify.com/track/${id}`,
+    "_blank"
+  );
+});
+
 function hidePanel() {
-  miniPanel.style.display = "none";
+  miniPanel.classList.remove("show");
+  setTimeout(()=> {
+    miniPanel.style.display = "none";
+  },250);
   globeRotating = true;
 }
 
