@@ -71,9 +71,9 @@ def get_artist_from_db(artist_name):
         return None
 
     return {
-        "id": row[0],
-        "name": row[1],
-        "image": row[2],
+    "id": row["spotify_id"],
+        "name": row["name"],
+        "image": row["image_url"],
         "images": []
     }
 
