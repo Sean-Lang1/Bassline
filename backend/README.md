@@ -2,6 +2,8 @@
 
 Bassline is a music data project that explores connections between artists and builds a network based on relationships such as collaborations, influences, similarities, and other artist connections.
 
+🌐 **Live Demo:** [Bassline](https://bassline-sean-lang.vercel.app)
+
 The goal of this project is to create a different way to discover music by focusing on how artists are connected rather than only relying on genre recommendations. Future plans include introducing song samples and expanding the ways users can explore these relationships.
 
 ## Features
